@@ -1,0 +1,16 @@
+{# Jinja2 template for structured JSON output #}
+{
+  "questions": [
+    {% for q in questions %}
+    {
+      "question": "{{ q.question }}",
+      "answer": "{{ q.answer }}",
+      "tips": "{{ q.tips | default('') }}",
+      "additional_solutions": "{{ q.additional_solutions | default('') }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ],
+  "study_mode": true,
+  "cv": "{{ cv | default('') }}",
+  "job_description": "{{ job_description | default('') }}"
+}

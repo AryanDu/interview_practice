@@ -1,0 +1,19 @@
+{# Jinja2 template for user prompt #}
+Generate {{ difficulty }}-level {{ question_type }} interview questions for a {{ domain }} position.
+Please provide 5-7 questions that are relevant and challenging.
+
+{% if job_description %}
+Job Description Context:
+{{ job_description }}
+
+Use this context to tailor questions specifically to this role.
+{% endif %}
+
+{% if cv %}
+Candidate CV:
+{{ cv }}
+
+Consider the candidate's background when generating questions.
+{% endif %}
+
+Format your response with clear Q&A pairs, tips for each answer, and additional solutions.

@@ -1,31 +1,21 @@
 """
 Main Streamlit application for Interview Practice App
+Refactored for modularity and maintainability
 """
 import streamlit as st
-import json
-from typing import Dict, Optional
 import sys
 import os
-import pandas as pd
-from datetime import datetime
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from config import Config
-from utils.llm_handlers import LLMManager
-from utils.prompts import PromptEngineer
-from utils.security import SecurityGuard
-from utils.cost_calculator import CostCalculator
-from utils.vector_db import VectorDatabase
-from utils.image_gen import ImageGenerator
-from utils.validators import validate_interview_request
-from utils.structured_outputs import StudyModeOutput, MockInterviewResult, QuestionAnswer
-from utils.interviewer_guidelines import InterviewerGuidelines
-from chains.interview_chains import InterviewChain
-import logging
-
-logger = logging.getLogger(__name__)
+from ui.sidebar import render_sidebar, initialize_session_state
+from ui.interview_prep import render_interview_prep_tab
+from ui.mock_interview import render_mock_interview_tab
+from ui.chatbot import render_chatbot_tab
+from ui.analytics import render_analytics_tab
+from ui.security import render_security_testing_tab
+from ui.visual_tools import render_visual_tools_tab
 
 # Page configuration
 st.set_page_config(
@@ -34,25 +24,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# Initialize session state
-if 'conversation_history' not in st.session_state:
-    st.session_state.conversation_history = []
-if 'llm_manager' not in st.session_state:
-    st.session_state.llm_manager = LLMManager()
-if 'security_guard' not in st.session_state:
-    st.session_state.security_guard = SecurityGuard()
-if 'vector_db' not in st.session_state:
-    try:
-        st.session_state.vector_db = VectorDatabase()
-    except Exception as e:
-        st.session_state.vector_db = None
-        st.warning(f"Vector database initialization failed: {e}")
-if 'image_generator' not in st.session_state:
-    try:
-        st.session_state.image_generator = ImageGenerator() if Config.OPENAI_API_KEY else None
-    except:
-        st.session_state.image_generator = None
 
 # Custom CSS
 st.markdown("""
@@ -92,94 +63,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Initialize session state
+initialize_session_state()
+
+
 def main():
-    """Main application"""
+    """Main application orchestrator"""
     st.markdown('<h1 class="main-header">💼 Interview Practice App</h1>', unsafe_allow_html=True)
     
-    # Sidebar configuration
-    with st.sidebar:
-        st.header("⚙️ Configuration")
-        
-        # API Keys status
-        keys_status = Config.validate_api_keys()
-        st.subheader("API Keys Status")
-        for provider, status in keys_status.items():
-            status_icon = "✅" if status else "❌"
-            st.write(f"{status_icon} {provider.capitalize()}")
-        
-        if not any(keys_status.values()):
-            st.error("⚠️ Please configure at least one API key in .env file")
-            st.stop()
-        
-        # LLM Provider selection
-        available_providers = [k for k, v in keys_status.items() if v]
-        selected_provider = st.selectbox(
-            "Select LLM Provider",
-            options=available_providers,
-            index=0 if available_providers else None
-        )
-        
-        # Model selection
-        models = {
-            "openai": ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano"],
-            "gemini": ["gemini-1.5-pro", "gemini-pro"],
-            "claude": ["claude-3-5-sonnet-20241022"]
-        }
-        selected_model = st.selectbox(
-            "Select Model",
-            options=models.get(selected_provider, ["default"]),
-            index=0
-        )
-        
-        st.divider()
-        
-        # Prompt Engineering Technique
-        st.subheader("📝 Prompt Engineering")
-        prompt_engineer = PromptEngineer()
-        techniques = prompt_engineer.get_all_techniques()
-        selected_technique = st.selectbox(
-            "Select Prompt Technique",
-            options=techniques,
-            index=0
-        )
-        
-        st.divider()
-        
-        # LLM Parameters
-        st.subheader("🎛️ LLM Parameters")
-        temperature = st.slider("Temperature", 0.0, 2.0, Config.DEFAULT_TEMPERATURE, 0.1)
-        top_p = st.slider("Top-p", 0.0, 1.0, Config.DEFAULT_TOP_P, 0.05)
-        max_tokens = st.slider("Max Tokens", 100, 4000, Config.DEFAULT_MAX_TOKENS, 100)
-        frequency_penalty = st.slider("Frequency Penalty", -2.0, 2.0, Config.DEFAULT_FREQUENCY_PENALTY, 0.1)
-        presence_penalty = st.slider("Presence Penalty", -2.0, 2.0, Config.DEFAULT_PRESENCE_PENALTY, 0.1)
-        
-        st.divider()
-        
-        # Chatbot mode toggle
-        chatbot_mode = st.checkbox("💬 Enable Chatbot Mode", value=False)
-        
-        # Advanced features
-        with st.expander("🔬 Advanced Features"):
-            use_rag = st.checkbox("Use RAG (Job Description Context)", value=False)
-            validate_with_llm = st.checkbox("Validate with Second LLM", value=False)
-            validator_provider = None
-            if validate_with_llm:
-                other_providers = [p for p in available_providers if p != selected_provider]
-                if other_providers:
-                    validator_provider = st.selectbox(
-                        "Validator LLM",
-                        options=other_providers,
-                        index=0
-                    )
-                else:
-                    st.warning("No other providers available for validation")
-            check_duplicates = st.checkbox("Check for Duplicates (Vector DB)", value=False)
-            generate_image = st.checkbox("Generate Motivational Image", value=False)
-            use_langchain = st.checkbox("Use LangChain Chains", value=False)
-    
-    # Initialize active tab tracking
-    if 'active_tab' not in st.session_state:
-        st.session_state.active_tab = 0
+    # Get sidebar configuration
+    sidebar_config = render_sidebar()
     
     # Tab selection
     st.markdown("---")
@@ -193,30 +86,24 @@ def main():
     
     st.markdown("---")
     
-    # Display selected tab content
+    # Render selected tab
     if st.session_state.active_tab == 0:
-        interview_prep_tab(selected_provider, selected_model, selected_technique, 
-                          temperature, top_p, max_tokens, frequency_penalty, presence_penalty,
-                          use_rag, validate_with_llm, validator_provider,
-                          check_duplicates, generate_image, use_langchain)
-    
+        render_interview_prep_tab(sidebar_config)
     elif st.session_state.active_tab == 1:
-        mock_interview_tab(selected_provider, selected_model, temperature, top_p, max_tokens)
-    
+        render_mock_interview_tab(sidebar_config)
     elif st.session_state.active_tab == 2:
-        chatbot_tab(selected_provider, selected_model, temperature, top_p, max_tokens)
-    
+        render_chatbot_tab(sidebar_config)
     elif st.session_state.active_tab == 3:
-        analytics_tab()
-    
+        render_analytics_tab()
     elif st.session_state.active_tab == 4:
-        security_testing_tab()
-    
+        render_security_testing_tab()
     elif st.session_state.active_tab == 5:
-        visual_tools_tab()
+        render_visual_tools_tab()
 
 
-def interview_prep_tab(provider, model, technique, temperature, top_p, max_tokens, 
+if __name__ == "__main__":
+    main()
+ 
                        frequency_penalty, presence_penalty, use_rag, validate_with_llm,
                        validator_provider, check_duplicates, generate_image, use_langchain):
     """Interview preparation tab"""

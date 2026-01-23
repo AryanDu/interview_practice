@@ -92,7 +92,8 @@ def render_chatbot_tab(config):
             "Ask a question:",
             placeholder="Type your professional interview question...",
             label_visibility="collapsed",
-            key="chat_user_input"
+            key="chat_user_input",
+            value=st.session_state.get("chat_input_value", "")
         )
     
     with col2:
@@ -141,4 +142,6 @@ Provide detailed, professional, and helpful answers to their questions."""
                     "content": assistant_response
                 })
                 
+                # Clear input
+                st.session_state.chat_input_value = ""
                 st.rerun()

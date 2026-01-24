@@ -13,13 +13,15 @@ class Config:
     
     # API Keys
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
-    GOOGLE_API_KEY: Optional[str] = os.getenv("GOOGLE_API_KEY")
+    GOOGLE_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")  # Uses GEMINI_API_KEY from .env
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
+    GROK_API_KEY: Optional[str] = os.getenv("GROK_API_KEY")
     
     # Model defaults
     DEFAULT_OPENAI_MODEL = "gpt-4o-mini"  # Change to gpt-4o, gpt-4.1, etc. as needed
     DEFAULT_GEMINI_MODEL = "gemini-1.5-pro"  # Using gemini-1.5-pro for v1beta compatibility
     DEFAULT_CLAUDE_MODEL = "claude-3-5-sonnet-20241022"
+    DEFAULT_GROK_MODEL = "grok-2"
     
     # Default LLM parameters
     DEFAULT_TEMPERATURE = 0.7
@@ -52,5 +54,6 @@ class Config:
             "openai": cls.OPENAI_API_KEY is not None,
             "gemini": cls.GOOGLE_API_KEY is not None,
             "claude": cls.ANTHROPIC_API_KEY is not None,
+            "grok": cls.GROK_API_KEY is not None,
         }
         return keys_status

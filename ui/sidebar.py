@@ -34,7 +34,8 @@ def render_sidebar():
         models = {
             "openai": ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano"],
             "gemini": ["gemini-1.5-pro", "gemini-pro"],
-            "claude": ["claude-3-5-sonnet-20241022"]
+            "claude": ["claude-3-5-sonnet-20241022"],
+            "grok": ["grok-2", "grok-vision-beta"]
         }
         selected_model = st.selectbox(
             "Select Model",

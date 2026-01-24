@@ -1,10 +1,11 @@
 """
-LLM handler implementations for OpenAI, Gemini, and Claude
+LLM handler implementations for OpenAI, Gemini, Claude, and Grok
 """
 from typing import List, Dict, Optional, Any
 import openai
 import google.generativeai as genai
 import anthropic
+import requests
 from config import Config
 import json
 import logging
@@ -186,6 +187,72 @@ class ClaudeHandler:
         }
 
 
+class GrokHandler:
+    """Handler for xAI Grok API"""
+    
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or Config.GROK_API_KEY
+        self.base_url = "https://api.x.ai/v1"
+        self.model_name = Config.DEFAULT_GROK_MODEL
+    
+    def generate_response(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: str = None,
+        temperature: float = None,
+        top_p: float = None,
+        max_tokens: int = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Generate response from Grok via xAI API"""
+        if not self.api_key:
+            logger.error("Grok API key not configured")
+            raise ValueError("Grok API key not configured")
+        
+        model_name = model or self.model_name
+        
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": temperature if temperature is not None else Config.DEFAULT_TEMPERATURE,
+            "top_p": top_p if top_p is not None else Config.DEFAULT_TOP_P,
+            "max_tokens": max_tokens or Config.DEFAULT_MAX_TOKENS,
+        }
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            return {
+                "content": data["choices"][0]["message"]["content"],
+                "model": model_name,
+                "usage": {
+                    "prompt_tokens": data.get("usage", {}).get("prompt_tokens", 0),
+                    "completion_tokens": data.get("usage", {}).get("completion_tokens", 0),
+                    "total_tokens": data.get("usage", {}).get("total_tokens", 0)
+                },
+                "finish_reason": data["choices"][0].get("finish_reason", "stop")
+            }
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Grok API error: {str(e)}")
+            raise ValueError(f"Grok API error: {str(e)}")
+
+
 class LLMManager:
     """Manager for multiple LLM providers"""
     
@@ -193,13 +260,15 @@ class LLMManager:
         self.openai_handler = OpenAIHandler() if Config.OPENAI_API_KEY else None
         self.gemini_handler = GeminiHandler() if Config.GOOGLE_API_KEY else None
         self.claude_handler = ClaudeHandler() if Config.ANTHROPIC_API_KEY else None
+        self.grok_handler = GrokHandler() if Config.GROK_API_KEY else None
     
     def get_handler(self, provider: str):
         """Get handler for specified provider"""
         handlers = {
             "openai": self.openai_handler,
             "gemini": self.gemini_handler,
-            "claude": self.claude_handler
+            "claude": self.claude_handler,
+            "grok": self.grok_handler
         }
         handler = handlers.get(provider.lower())
         if not handler:

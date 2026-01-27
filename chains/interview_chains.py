@@ -79,18 +79,20 @@ class InterviewChain:
     
     def create_question_generation_chain(self) -> LLMChain:
         """Create a chain for generating interview questions"""
+        # Default template requests questions only; can be extended at runtime
         prompt = PromptTemplate(
-            input_variables=["domain", "difficulty", "job_description"],
+            input_variables=["domain", "difficulty", "job_description", "num_questions", "include_answers"],
             template="""You are an expert interview coach.
-            
-            Domain: {domain}
-            Difficulty: {difficulty}
-            Job Description: {job_description}
-            
-            Generate 5-7 interview questions appropriate for this role.
-            Make questions relevant, challenging, and practical.
-            
-            Questions:"""
+
+Domain: {domain}
+Difficulty: {difficulty}
+Job Description: {job_description}
+
+Generate exactly {num_questions} interview questions appropriate for this role.
+Make questions relevant, challenging, and practical.
+{answers_instruction}
+
+Questions and Answers:"""
         )
         
         return LLMChain(
@@ -163,16 +165,23 @@ class InterviewChain:
         domain: str,
         difficulty: str,
         job_description: Optional[str] = None
+        , num_questions: int = 5, include_answers: bool = False
     ) -> Dict[str, str]:
         """Run the complete interview preparation chain"""
         # Use the question generation chain directly
         question_chain = self.create_question_generation_chain()
         
         # Generate the prompt and get the response
+        # Build answers instruction dynamically
+        answers_instruction = "Provide answers for each question." if include_answers else "Do not provide answers; return questions only."
+
         prompt_text = question_chain.prompt.format(
             domain=domain,
             difficulty=difficulty,
-            job_description=job_description or "Not provided"
+            job_description=job_description or "Not provided",
+            num_questions=num_questions,
+            include_answers=str(include_answers),
+            answers_instruction=answers_instruction
         )
         
         # Invoke the LLM with the formatted prompt

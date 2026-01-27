@@ -112,6 +112,15 @@ def render_interview_prep_tab(config):
             else:
                 prompts = prompt_engineer.zero_shot_prompt(domain, difficulty, job_description, question_type)
             
+            # Enforce requested number of questions and Q&A format
+            include_answers = True
+            qa_instruction = (
+                f"\n\nIMPORTANT: Generate exactly {num_questions} interview questions and provide a clear answer for each one. "
+                "Format each item as a numbered Q&A pair like:\n1. Question?\nAnswer: ...\n2. Question?\nAnswer: ...\n" 
+                "Return ONLY the numbered Q&A pairs and nothing else."
+            )
+            prompts["user"] = prompts.get("user", "") + qa_instruction
+
             # RAG: Get context from vector database
             rag_context = ""
             if config["use_rag"] and job_description and st.session_state.vector_db:
@@ -130,7 +139,14 @@ def render_interview_prep_tab(config):
             if config["use_langchain"]:
                 try:
                     chain = InterviewChain(provider=config["provider"], model=config["model"])
-                    result = chain.run_interview_chain(domain, difficulty, job_description)
+                    # Pass the requested number of questions and request answers (Q&A)
+                    result = chain.run_interview_chain(
+                        domain,
+                        difficulty,
+                        job_description,
+                        num_questions=num_questions,
+                        include_answers=True
+                    )
                     response_text = result.get("questions", "No response generated")
                     response = {"content": response_text, "usage": {}}
                 except Exception as e:

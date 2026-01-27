@@ -69,9 +69,22 @@ class CostCalculator:
         usage: Dict[str, int]
     ) -> Dict[str, float]:
         """Calculate cost from API response usage dictionary"""
-        prompt_tokens = usage.get("prompt_tokens", 0)
-        completion_tokens = usage.get("completion_tokens", 0)
-        
+        # Defensive handling: `usage` may be None or contain None values.
+        if not usage:
+            usage = {}
+
+        # Coerce token counts to integers and fallback to 0 for None/invalid values
+        def _safe_int(value):
+            try:
+                if value is None:
+                    return 0
+                return int(value)
+            except (ValueError, TypeError):
+                return 0
+
+        prompt_tokens = _safe_int(usage.get("prompt_tokens"))
+        completion_tokens = _safe_int(usage.get("completion_tokens"))
+
         return cls.calculate_cost(
             provider=provider,
             model=model,

@@ -1,5 +1,5 @@
 """
-LLM handler implementations for OpenAI, Gemini, Claude, and Grok
+LLM handler implementations for OpenAI, Gemini, Claude, Grok, and Ollama
 """
 from typing import List, Dict, Optional, Any
 import openai
@@ -27,8 +27,16 @@ class OpenAIHandler:
     
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or Config.OPENAI_API_KEY
+        # Log a masked version of the key for debugging (do not expose full key)
         if self.api_key:
+            try:
+                masked = f"***{self.api_key[-6:]}" if len(self.api_key) > 6 else "***"
+            except Exception:
+                masked = "***"
+            logger.info(f"OpenAI API key present (masked): {masked}")
             openai.api_key = self.api_key
+        else:
+            logger.info("OpenAI API key not present")
         self.client = openai.OpenAI(api_key=self.api_key) if self.api_key else None
     
     def generate_response(
@@ -59,31 +67,113 @@ class OpenAIHandler:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ]
-        
-        response = self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens,
-            frequency_penalty=frequency_penalty,
-            presence_penalty=presence_penalty,
-            stream=stream
-        )
-        
-        if stream:
-            return response  # Return stream object
-        
-        return {
-            "content": response.choices[0].message.content,
-            "model": model,
-            "usage": {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens
-            },
-            "finish_reason": response.choices[0].finish_reason
-        }
+        # Determine if the requested model is a chat model or a non-chat/completions-style model.
+        # Some models (e.g., gpt-5.2-codex, older Codex/text-* models) are not supported by the
+        # chat completions endpoint and must be called via the responses/completions endpoint.
+        lower_model = (model or Config.DEFAULT_OPENAI_MODEL).lower()
+        non_chat_indicators = ["codex", "code-", "text-", "completion", "gpt-5"]
+        is_non_chat = any(ind in lower_model for ind in non_chat_indicators)
+
+        # If streaming and chat model, use chat streaming as before
+        if not is_non_chat:
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                top_p=top_p,
+                max_tokens=max_tokens,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                stream=stream
+            )
+
+            if stream:
+                return response  # Return stream object
+
+            return {
+                "content": response.choices[0].message.content,
+                "model": model,
+                "usage": {
+                    "prompt_tokens": getattr(response.usage, 'prompt_tokens', None),
+                    "completion_tokens": getattr(response.usage, 'completion_tokens', None),
+                    "total_tokens": getattr(response.usage, 'total_tokens', None)
+                },
+                "finish_reason": response.choices[0].finish_reason
+            }
+
+        # Non-chat model: use responses (or completions) endpoint
+        try:
+            # Prefer responses API (newer). Map parameters accordingly.
+            # Note: some models (e.g., gpt-5.2-codex) do not support all parameters.
+            logger.info(f"Using non-chat endpoint for model: {model}")
+            
+            # Build kwargs, filtering out unsupported parameters for certain models
+            resp_kwargs = {
+                "model": model,
+                "input": user_prompt,
+                "max_output_tokens": max_tokens
+            }
+            
+            # gpt-5.2-codex and some other codex models don't support temperature/top_p
+            if not any(x in lower_model for x in ["codex", "gpt-5"]):
+                if temperature is not None:
+                    resp_kwargs["temperature"] = temperature
+                if top_p is not None:
+                    resp_kwargs["top_p"] = top_p
+            
+            resp = self.client.responses.create(**resp_kwargs)
+
+            # Extract text content from responses API variations
+            content = ""
+            if hasattr(resp, 'output_text') and resp.output_text:
+                content = resp.output_text
+            else:
+                # Try to extract from resp.output which may be a list of dictionaries
+                try:
+                    outputs = getattr(resp, 'output', None)
+                    if isinstance(outputs, list) and len(outputs) > 0:
+                        # outputs elements can be dicts with 'content'
+                        texts = []
+                        for item in outputs:
+                            if isinstance(item, dict):
+                                # 'content' may be a list of { 'type': 'output_text', 'text': '...' }
+                                if 'content' in item and isinstance(item['content'], list):
+                                    for c in item['content']:
+                                        if isinstance(c, dict) and 'text' in c:
+                                            texts.append(c['text'])
+                                        elif isinstance(c, str):
+                                            texts.append(c)
+                                elif 'text' in item:
+                                    texts.append(item['text'])
+                            elif isinstance(item, str):
+                                texts.append(item)
+                        content = "\n".join(texts)
+                except Exception:
+                    content = str(resp)
+
+            usage = {}
+            try:
+                usage_obj = getattr(resp, 'usage', None)
+                if usage_obj:
+                    usage = {
+                        'prompt_tokens': getattr(usage_obj, 'prompt_tokens', None),
+                        'completion_tokens': getattr(usage_obj, 'completion_tokens', None),
+                        'total_tokens': getattr(usage_obj, 'total_tokens', None)
+                    }
+            except Exception:
+                usage = {}
+
+            return {
+                'content': content,
+                'model': model,
+                'usage': usage,
+                'finish_reason': None
+            }
+
+        except Exception as e:
+            # If responses endpoint fails with a model type error, surface the message
+            logger.error(f"OpenAI non-chat request failed: {e}")
+            raise
 
 
 class GeminiHandler:
@@ -253,6 +343,128 @@ class GrokHandler:
             raise ValueError(f"Grok API error: {str(e)}")
 
 
+class OllamaHandler:
+    """Handler for Ollama local LLM API"""
+    
+    def __init__(self, base_url: Optional[str] = None):
+        self.base_url = base_url or Config.OLLAMA_BASE_URL
+        self.model_name = Config.DEFAULT_OLLAMA_MODEL
+        self.connection_verified = self._verify_connection()
+    
+    def _verify_connection(self) -> bool:
+        """Verify that Ollama service is accessible"""
+        try:
+            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            response.raise_for_status()
+            logger.info(f"Ollama service verified at {self.base_url}")
+            return True
+        except requests.exceptions.ConnectionError as e:
+            logger.warning(f"Ollama not running at {self.base_url}. Start with: ollama serve")
+            return False
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Ollama service not accessible at {self.base_url}: {str(e)}")
+            return False
+    
+    def get_available_models(self) -> List[str]:
+        """Get list of available models from Ollama"""
+        try:
+            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            response.raise_for_status()
+            data = response.json()
+            models = [model["name"] for model in data.get("models", [])]
+            return models if models else [self.model_name]
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch Ollama models: {str(e)}")
+            return [self.model_name]
+    
+    def generate_response(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: str = None,
+        temperature: float = None,
+        top_p: float = None,
+        max_tokens: int = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Generate response from Ollama local LLM"""
+        model_name = model or self.model_name
+        
+        if not self.connection_verified:
+            raise ValueError(
+                f"Ollama service is not running at {self.base_url}. "
+                f"Please start Ollama with: ollama serve"
+            )
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        # Ollama uses slightly different parameter names
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": temperature if temperature is not None else Config.DEFAULT_TEMPERATURE,
+            "top_p": top_p if top_p is not None else Config.DEFAULT_TOP_P,
+            "num_predict": max_tokens or Config.DEFAULT_MAX_TOKENS,
+            "stream": False
+        }
+        
+        try:
+            logger.info(f"Generating response with Ollama model: {model_name}")
+            
+            # Use longer timeout for initial request, with connection timeout
+            response = requests.post(
+                f"{self.base_url}/api/chat",
+                headers=headers,
+                json=payload,
+                timeout=(10, 600)  # (connection timeout, read timeout)
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            content = data.get("message", {}).get("content", "")
+            if not content:
+                raise ValueError("Empty response from Ollama. Model may not be installed.")
+            
+            return {
+                "content": content,
+                "model": model_name,
+                "usage": {
+                    "prompt_tokens": 0,  # Ollama doesn't return token counts
+                    "completion_tokens": 0,
+                    "total_tokens": 0
+                },
+                "finish_reason": "stop"
+            }
+        except requests.exceptions.Timeout as e:
+            error_msg = (
+                f"Ollama request timed out after 10 minutes. "
+                f"Model '{model_name}' may be too large for your system or not installed. "
+                f"Try: ollama pull {model_name}"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        except requests.exceptions.ConnectionError as e:
+            error_msg = (
+                f"Cannot connect to Ollama at {self.base_url}. "
+                f"Make sure Ollama is running: ollama serve"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Ollama API error: {str(e)}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        except Exception as e:
+            error_msg = f"Unexpected error with Ollama: {str(e)}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+
 class LLMManager:
     """Manager for multiple LLM providers"""
     
@@ -261,6 +473,7 @@ class LLMManager:
         self.gemini_handler = GeminiHandler() if Config.GOOGLE_API_KEY else None
         self.claude_handler = ClaudeHandler() if Config.ANTHROPIC_API_KEY else None
         self.grok_handler = GrokHandler() if Config.GROK_API_KEY else None
+        self.ollama_handler = OllamaHandler() if Config.OLLAMA_BASE_URL else None
     
     def get_handler(self, provider: str):
         """Get handler for specified provider"""
@@ -268,7 +481,8 @@ class LLMManager:
             "openai": self.openai_handler,
             "gemini": self.gemini_handler,
             "claude": self.claude_handler,
-            "grok": self.grok_handler
+            "grok": self.grok_handler,
+            "ollama": self.ollama_handler
         }
         handler = handlers.get(provider.lower())
         if not handler:

@@ -6,6 +6,7 @@ python-dotenv>=1.0.0
 # Additional LLM providers
 google-generativeai>=0.3.0  # For Gemini
 anthropic>=0.7.0  # For Claude
+requests>=2.31.0  # For Ollama and Grok APIs
 
 # LangChain for chains and agents
 langchain>=0.1.0

@@ -111,7 +111,7 @@ This project implements a comprehensive Interview Practice App with all required
   - Motivational image generation
   - Skill visualization
 
-- **`validators.py`**: Input validation using Pydantic
+- **`validators.py`**: Input validation using Pydantic 
   - Request validation
   - Type checking
   - Constraint validation

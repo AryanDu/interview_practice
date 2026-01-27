@@ -30,13 +30,32 @@ def render_sidebar():
             index=0 if available_providers else None
         )
         
+        # Show Ollama status and instructions
+        if selected_provider == "ollama":
+            from utils.llm_handlers import OllamaHandler
+            try:
+                ollama = OllamaHandler()
+                if ollama.connection_verified:
+                    st.success("✅ Ollama is running")
+                else:
+                    st.error("❌ Ollama is not running. Start with: ollama serve")
+                    st.info("📖 See OLLAMA_TROUBLESHOOTING.md for detailed setup instructions")
+            except:
+                st.warning("⚠️ Could not verify Ollama connection")
+        
         # Model selection
         models = {
-            "openai": ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano"],
+            "openai": Config.OPENAI_MODELS,
             "gemini": ["gemini-1.5-pro", "gemini-pro"],
             "claude": ["claude-3-5-sonnet-20241022"],
-            "grok": ["grok-2", "grok-vision-beta"]
+            "grok": ["grok-2", "grok-vision-beta"],
+            "ollama": []  # Will be populated dynamically
         }
+        
+        # For Ollama, show all suggested models in dropdown
+        if selected_provider == "ollama":
+            models["ollama"] = ["phi3", "mistral", "neural-chat", "llama2", "dolphin-mixtral", "openchat"]
+        
         selected_model = st.selectbox(
             "Select Model",
             options=models.get(selected_provider, ["default"]),

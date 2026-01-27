@@ -193,31 +193,56 @@ Return ONLY the questions, nothing else."""
             response_text = response.get("content")
         
         if response_text:
-            # Parse questions from response
+            # Parse questions from response - more flexible parsing
             lines = response_text.strip().split('\n')
             questions = []
+            
             for line in lines:
                 line = line.strip()
-                # Check if line starts with a number followed by a period
+                
+                # Skip empty lines and lines that are just whitespace
+                if not line:
+                    continue
+                
+                # Try to extract question if line starts with number + period (1., 2., etc.)
                 if line and line[0].isdigit():
                     # Remove the numbering (1., 2., etc.)
                     parts = line.split('.', 1)
                     if len(parts) > 1:
                         question = parts[1].strip()
-                        if question:
+                        if question and len(question) > 10:  # Ensure it's a real question
                             questions.append(question)
+                # Also accept lines that look like questions (contain ?)
+                elif '?' in line and len(line) > 10:
+                    questions.append(line)
             
             if questions:
+                # Take only the requested number of questions
                 st.session_state.mock_interview_questions = questions[:num_questions]
                 st.session_state.mock_interview_answers = {i: "" for i in range(len(questions[:num_questions]))}
                 st.session_state.mock_interview_current_question = 0
                 st.session_state.mock_interview_score = None
                 st.session_state.mock_interview_domain = domain
                 st.session_state.mock_interview_difficulty = difficulty
-                st.success(f"✅ {len(questions[:num_questions])} questions generated! Click 'Next' to start the interview.")
+                st.success(f"✅ {len(questions[:num_questions])} questions generated! Start answering.")
                 st.rerun()
             else:
-                st.error("Failed to parse questions from response. Response was: " + response_text[:200])
+                # Fallback: if no questions parsed, try to split by sentence
+                import re
+                sentences = re.split(r'[.!?]+', response_text)
+                backup_questions = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 15 and '?' in s]
+                
+                if backup_questions:
+                    st.session_state.mock_interview_questions = backup_questions[:num_questions]
+                    st.session_state.mock_interview_answers = {i: "" for i in range(len(backup_questions[:num_questions]))}
+                    st.session_state.mock_interview_current_question = 0
+                    st.session_state.mock_interview_score = None
+                    st.session_state.mock_interview_domain = domain
+                    st.session_state.mock_interview_difficulty = difficulty
+                    st.success(f"✅ {len(backup_questions[:num_questions])} questions parsed! Start answering.")
+                    st.rerun()
+                else:
+                    st.error(f"Failed to parse questions. Please ensure response contains questions.\n\nResponse preview:\n{response_text[:300]}")
         else:
             st.error("Failed to generate questions")
             

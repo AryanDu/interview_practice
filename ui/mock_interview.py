@@ -4,6 +4,7 @@ Mock Interview tab - Practice with Real Questions
 import streamlit as st
 import logging
 import uuid
+from html import escape
 from ui.mock_interview_reports import build_report_payload, save_report, render_reports_panel
 
 logger = logging.getLogger(__name__)
@@ -101,7 +102,7 @@ def render_mock_interview_tab(config):
 
         with st.container(border=True):
             st.markdown(f'<div class="v2-interview-question">QUESTION {current_q_idx + 1:02d}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="v2-interview-question-text">{current_question}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="v2-interview-question-text">{escape(str(current_question))}</div>', unsafe_allow_html=True)
             st.caption("Draft your answer below. Your response is retained when you navigate between questions.")
             answer = st.text_area(
                 "Your Answer:",

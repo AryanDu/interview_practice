@@ -11,11 +11,16 @@ import json
 import os
 import random
 import sqlite3
+import threading
 import time
 import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+import psycopg
+from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 
 import pandas as pd
 import requests
@@ -34,7 +39,12 @@ MAX_SOURCE_CHARS = 18000
 DEFAULT_DAILY_GOAL = 20
 # This is a personal, single-user app for now. Persistent storage/access control
 # will be finalized separately; on a public URL, visitors can otherwise share it.
-DEFAULT_PROFILE_ID = os.getenv("QUIZ_PROFILE_ID", "personal-default").strip() or "personal-default"
+DEFAULT_PROFILE_ID = os.getenv("QUIZ_PROFILE_ID", "local-profile").strip() or "local-profile"
+_PG_POOL: ConnectionPool | None = None
+_PG_POOL_URL = ""
+_PG_POOL_LOCK = threading.Lock()
+_PG_SCHEMA_LOCK = threading.Lock()
+_PG_SCHEMA_READY = False
 
 
 class GeminiAPIError(RuntimeError):
@@ -63,8 +73,188 @@ def _api_key() -> str:
     return ""
 
 
-def _db() -> sqlite3.Connection:
-    """Open the current SQLite store and safely add columns to older databases."""
+class _PostgresCursor:
+    """Small cursor adapter to preserve sqlite-like fetch/lastrowid usage."""
+
+    def __init__(self, cursor, lastrowid=None):
+        self._cursor = cursor
+        self.lastrowid = lastrowid
+
+    def fetchone(self):
+        return self._cursor.fetchone()
+
+    def fetchall(self):
+        return self._cursor.fetchall()
+
+
+class _PostgresConnection:
+    """DB-API adapter used by the existing SQL, with a bounded shared pool."""
+
+    def __init__(self, pool: ConnectionPool):
+        self._pool = pool
+        self._raw = pool.getconn(timeout=10)
+        self._closed = False
+
+    def execute(self, query, params=()):
+        normalized = query.replace("?", "%s")
+        wants_insert_id = (
+            normalized.lstrip().lower().startswith("insert into quiz_attempts")
+            and "returning" not in normalized.lower()
+        )
+        if wants_insert_id:
+            normalized += " RETURNING id"
+        cursor = self._raw.cursor()
+        cursor.execute(normalized, tuple(params or ()))
+        lastrowid = None
+        if wants_insert_id:
+            row = cursor.fetchone()
+            lastrowid = row["id"] if row else None
+        return _PostgresCursor(cursor, lastrowid)
+
+    def executemany(self, query, rows):
+        cursor = self._raw.cursor()
+        cursor.executemany(query.replace("?", "%s"), list(rows))
+        return _PostgresCursor(cursor)
+
+    def commit(self):
+        self._raw.commit()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type is None:
+            self._raw.commit()
+        else:
+            self._raw.rollback()
+        return False
+
+    def close(self):
+        if self._closed:
+            return
+        try:
+            self._raw.rollback()
+        except Exception:
+            pass
+        self._pool.putconn(self._raw)
+        self._closed = True
+
+
+def _database_url() -> str:
+    value = os.getenv("DATABASE_URL", "").strip()
+    if value:
+        return value
+    try:
+        return str(st.secrets.get("DATABASE_URL", "")).strip()
+    except Exception:
+        return ""
+
+
+def _pool_for(database_url: str) -> ConnectionPool:
+    global _PG_POOL, _PG_POOL_URL
+    with _PG_POOL_LOCK:
+        if _PG_POOL is None or _PG_POOL_URL != database_url:
+            if _PG_POOL is not None:
+                try:
+                    _PG_POOL.close()
+                except Exception:
+                    pass
+            _PG_POOL = ConnectionPool(
+                conninfo=database_url,
+                min_size=1,
+                max_size=10,
+                timeout=10,
+                kwargs={"row_factory": dict_row},
+                open=True,
+            )
+            _PG_POOL_URL = database_url
+        return _PG_POOL
+
+
+def _ensure_postgres_schema(conn: _PostgresConnection) -> None:
+    """Create/migrate only app-owned tables; never reassign another user's rows."""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS quiz_attempts (
+            id BIGSERIAL PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            difficulty TEXT NOT NULL,
+            score INTEGER NOT NULL,
+            total INTEGER NOT NULL,
+            correct INTEGER NOT NULL,
+            mode TEXT NOT NULL DEFAULT 'practice',
+            duration_seconds INTEGER,
+            started_at TEXT,
+            completed_at TEXT,
+            attempt_token TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS quiz_responses (
+            id BIGSERIAL PRIMARY KEY,
+            attempt_id BIGINT NOT NULL REFERENCES quiz_attempts(id) ON DELETE CASCADE,
+            topic TEXT NOT NULL,
+            question TEXT NOT NULL,
+            selected_index INTEGER,
+            correct_index INTEGER NOT NULL,
+            is_correct INTEGER NOT NULL,
+            options_json TEXT NOT NULL DEFAULT '[]',
+            explanation TEXT NOT NULL DEFAULT ''
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS app_settings (
+            setting_key TEXT PRIMARY KEY,
+            setting_value TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_settings (
+            session_id TEXT NOT NULL,
+            setting_key TEXT NOT NULL,
+            setting_value TEXT NOT NULL,
+            PRIMARY KEY (session_id, setting_key)
+        )
+    """)
+    for name, declaration in {
+        "mode": "TEXT NOT NULL DEFAULT 'practice'",
+        "duration_seconds": "INTEGER",
+        "started_at": "TEXT",
+        "completed_at": "TEXT",
+        "attempt_token": "TEXT",
+    }.items():
+        conn.execute(f"ALTER TABLE quiz_attempts ADD COLUMN IF NOT EXISTS {name} {declaration}")
+    for name, declaration in {
+        "options_json": "TEXT NOT NULL DEFAULT '[]'",
+        "explanation": "TEXT NOT NULL DEFAULT ''",
+    }.items():
+        conn.execute(f"ALTER TABLE quiz_responses ADD COLUMN IF NOT EXISTS {name} {declaration}")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_quiz_attempt_token ON quiz_attempts(attempt_token) WHERE attempt_token IS NOT NULL")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_quiz_attempt_profile_date ON quiz_attempts(session_id, created_at)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_quiz_response_attempt ON quiz_responses(attempt_id)")
+
+
+def _db():
+    """Use pooled PostgreSQL when configured; retain SQLite for local development."""
+    global _PG_SCHEMA_READY
+    database_url = _database_url()
+    if database_url:
+        pool = _pool_for(database_url)
+        if not _PG_SCHEMA_READY:
+            with _PG_SCHEMA_LOCK:
+                if not _PG_SCHEMA_READY:
+                    conn = _PostgresConnection(pool)
+                    try:
+                        _ensure_postgres_schema(conn)
+                        conn.commit()
+                        _PG_SCHEMA_READY = True
+                    finally:
+                        conn.close()
+        return _PostgresConnection(pool)
+
+    # Local fallback only. The deployed multi-user app requires DATABASE_URL in
+    # ui.auth, so it cannot silently fall back to ephemeral shared cloud SQLite.
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH, timeout=15)
     conn.row_factory = sqlite3.Row
@@ -107,45 +297,34 @@ def _db() -> sqlite3.Connection:
             setting_value TEXT NOT NULL
         )
     """)
-    # Backward-compatible migration for databases created by earlier versions.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_settings (
+            session_id TEXT NOT NULL,
+            setting_key TEXT NOT NULL,
+            setting_value TEXT NOT NULL,
+            PRIMARY KEY (session_id, setting_key)
+        )
+    """)
     attempt_columns = {row["name"] for row in conn.execute("PRAGMA table_info(quiz_attempts)")}
-    attempt_migrations = {
+    for name, declaration in {
         "mode": "TEXT NOT NULL DEFAULT 'practice'",
         "duration_seconds": "INTEGER",
         "started_at": "TEXT",
         "completed_at": "TEXT",
         "attempt_token": "TEXT",
-    }
-    for name, declaration in attempt_migrations.items():
+    }.items():
         if name not in attempt_columns:
             conn.execute(f"ALTER TABLE quiz_attempts ADD COLUMN {name} {declaration}")
-
     response_columns = {row["name"] for row in conn.execute("PRAGMA table_info(quiz_responses)")}
-    response_migrations = {
+    for name, declaration in {
         "options_json": "TEXT NOT NULL DEFAULT '[]'",
         "explanation": "TEXT NOT NULL DEFAULT ''",
-    }
-    for name, declaration in response_migrations.items():
+    }.items():
         if name not in response_columns:
             conn.execute(f"ALTER TABLE quiz_responses ADD COLUMN {name} {declaration}")
-
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_quiz_attempt_token ON quiz_attempts(attempt_token) WHERE attempt_token IS NOT NULL")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_quiz_attempt_profile_date ON quiz_attempts(session_id, created_at)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_quiz_response_attempt ON quiz_responses(attempt_id)")
-    # Single-user mode: bring attempts saved by the previous Progress ID workflow
-    # into the stable profile so existing history is not silently hidden.
-    migration_done = conn.execute(
-        "SELECT setting_value FROM app_settings WHERE setting_key = 'legacy_profile_migration_v1'"
-    ).fetchone()
-    if not migration_done:
-        conn.execute("UPDATE quiz_attempts SET session_id = ? WHERE session_id != ?", (DEFAULT_PROFILE_ID, DEFAULT_PROFILE_ID))
-        conn.execute(
-            "INSERT INTO app_settings(setting_key, setting_value) VALUES ('legacy_profile_migration_v1', '1')"
-        )
-    conn.execute(
-        "INSERT OR IGNORE INTO app_settings(setting_key, setting_value) VALUES ('daily_goal_questions', ?)",
-        (str(DEFAULT_DAILY_GOAL),),
-    )
     conn.commit()
     return conn
 

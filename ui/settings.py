@@ -74,6 +74,13 @@ def render_settings(user: dict) -> None:
 
     st.markdown("## Viewing preferences")
     with st.container(border=True):
+        st.markdown('<div class="v2-settings-section">DEFAULT LANDING PAGE</div>', unsafe_allow_html=True)
+        st.selectbox(
+            "Start each visit at",
+            options=["Command Center", "Practice Hub"],
+            key="v2_landing_preference",
+            help="Applies to a new app session in this browser session; it doesn't change saved practice data.",
+        )
         st.markdown('<div class="v2-settings-section">COMFORT & DENSITY</div>', unsafe_allow_html=True)
         st.checkbox(
             "Compact cards and tighter spacing",

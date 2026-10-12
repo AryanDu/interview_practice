@@ -12,6 +12,223 @@ import streamlit as st
 from ui.quiz_tracker import _daily_stats, _get_daily_goal, _load_history, _now
 
 
+_DASHBOARD_CSS = """
+<style>
+div[data-testid="stVerticalBlockBorderWrapper"] {
+  background: #FFFFFF;
+  border: 1px solid var(--v2-line, #E3E7F0) !important;
+  border-radius: 17px !important;
+  box-shadow: 0 5px 20px rgba(27, 35, 64, 0.035);
+}
+
+.v2-dashboard-hero {
+  isolation: isolate;
+  position: relative;
+  overflow: hidden;
+  padding: clamp(1.25rem, 3.2vw, 2.2rem);
+  margin: 0 0 1.25rem;
+  border: 1px solid #E9E5D5;
+  border-radius: 22px;
+  background: linear-gradient(112deg, #FFFFFF 0%, #FFFFFF 68%, #FFF5BE 100%);
+}
+
+.v2-hero-kicker {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #EFE1A5;
+  border-radius: 7px;
+  padding: 0.4rem 0.6rem;
+  background: var(--v2-butter, #FFF0A6);
+  color: var(--v2-cobalt-deep, #233FAF);
+  font-size: 0.66rem;
+  line-height: 1.15;
+  font-weight: 850;
+  letter-spacing: 0.105em;
+}
+
+.v2-dashboard-hero h1 {
+  position: relative;
+  z-index: 1;
+  max-width: 17ch;
+  margin: 0.9rem 0 0.55rem;
+  color: var(--v2-ink, #1B2340);
+  font-size: clamp(2.05rem, 4.5vw, 3.3rem);
+  line-height: 1.02;
+  font-weight: 850;
+  letter-spacing: -0.06em;
+}
+
+.v2-dashboard-hero p {
+  position: relative;
+  z-index: 1;
+  max-width: 54ch;
+  margin: 0;
+  color: var(--v2-muted, #68718A);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.v2-hero-foot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 1.35rem;
+  color: var(--v2-muted, #68718A);
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.v2-hero-foot span {
+  display: inline-block;
+  width: 24px;
+  height: 3px;
+  border-radius: 4px;
+  background: var(--v2-cobalt, #3556D8);
+}
+
+.v2-hero-orbit {
+  position: absolute;
+  z-index: 0;
+  top: 15%;
+  right: 6%;
+  width: 130px;
+  aspect-ratio: 1;
+  border: 1px solid rgba(53, 86, 216, 0.18);
+  border-radius: 50%;
+}
+
+.v2-hero-orbit::before {
+  position: absolute;
+  content: "";
+  inset: 18px -18px;
+  border: 1px solid rgba(53, 86, 216, 0.20);
+  border-radius: 50%;
+  transform: rotate(42deg);
+}
+
+.v2-hero-orbit::after {
+  position: absolute;
+  content: "";
+  top: 11px;
+  right: 10px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--v2-cobalt, #3556D8);
+  border-radius: 50%;
+  background: var(--v2-butter, #FFF0A6);
+}
+
+.v2-panel-kicker {
+  color: var(--v2-muted, #68718A);
+  font-size: 0.67rem;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  margin-bottom: 0.2rem;
+}
+
+.v2-goal-count {
+  margin: 0.25rem 0 0.65rem;
+  color: var(--v2-cobalt, #3556D8);
+  font-size: 2.1rem;
+  line-height: 1.2;
+  font-weight: 850;
+  letter-spacing: -0.06em;
+}
+
+.v2-goal-count span {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--v2-muted, #68718A);
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.v2-action-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.2rem;
+}
+
+.v2-action-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--v2-butter, #FFF0A6);
+  color: var(--v2-cobalt-deep, #233FAF);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
+.v2-action-title {
+  color: var(--v2-ink, #1B2340);
+  font-size: 1.1rem;
+  font-weight: 850;
+  letter-spacing: -0.035em;
+}
+
+.v2-history-label {
+  display: inline-block;
+  padding: 0.35rem 0.45rem;
+  border-radius: 6px;
+  background: #EDF0FF;
+  color: var(--v2-cobalt-deep, #233FAF);
+  font-size: 0.6rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+}
+
+.v2-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
+  background: var(--v2-butter, #FFF0A6);
+  color: var(--v2-cobalt, #3556D8);
+  font-size: 1.5rem;
+}
+
+@media (max-width: 760px) {
+  .v2-dashboard-hero {
+    padding: 1.2rem;
+    border-radius: 18px;
+  }
+
+  .v2-dashboard-hero h1 {
+    max-width: 15ch;
+    font-size: clamp(1.95rem, 7vw, 2.55rem);
+  }
+
+  .v2-dashboard-hero p { font-size: 0.93rem; }
+  .v2-hero-orbit { display: none; }
+  .v2-hero-foot { font-size: 0.58rem; letter-spacing: 0.045em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-dashboard-hero *,
+  .v2-dashboard-hero::before,
+  .v2-dashboard-hero::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+</style>
+"""
+
+
 def _go_to_workspace(index: int) -> None:
     """Use the app's existing workspace switcher to open a feature."""
     st.session_state.active_tab = index
@@ -65,6 +282,8 @@ def _render_action_card(
 
 def render_dashboard(user_id: str, user_name: str = "") -> None:
     """Render progress-led homepage from the signed-in user's real history."""
+    st.markdown(_DASHBOARD_CSS, unsafe_allow_html=True)
+
     first_name = (user_name or "").strip().split()
     display_name = escape(first_name[0]) if first_name else "there"
 
@@ -99,15 +318,17 @@ def render_dashboard(user_id: str, user_name: str = "") -> None:
     total_correct = sum(int(row.get("correct") or 0) for row in attempts)
     overall_accuracy = round(100 * total_correct / total_questions) if total_questions else None
 
-    metric_cols = st.columns(4, gap="medium")
+    # Two rows keep metric cards readable on smaller laptop and phone widths.
+    metric_cols = st.columns(2, gap="medium")
     metric_cols[0].metric("Questions answered", f"{total_questions:,}")
     metric_cols[1].metric(
         "Overall accuracy",
         f"{overall_accuracy}%" if overall_accuracy is not None else "—",
         f"{total_correct:,} correct" if total_questions else "Start with your first quiz",
     )
-    metric_cols[2].metric("Practice sessions", f"{len(attempts):,}")
-    metric_cols[3].metric(
+    metric_cols = st.columns(2, gap="medium")
+    metric_cols[0].metric("Practice sessions", f"{len(attempts):,}")
+    metric_cols[1].metric(
         "Current streak",
         f"{streak} days" if streak else "Start today",
         f"Best: {best_streak} days" if best_streak else "A little practice adds up",
@@ -263,28 +484,23 @@ def render_dashboard(user_id: str, user_name: str = "") -> None:
 
     st.markdown("## Recent practice")
     if attempts:
-        with st.container(border=True):
-            for row in attempts[:4]:
-                stamp = str(row.get("completed_at") or row.get("created_at") or "")
-                stamp = stamp.replace("T", " ")[:16]
-                mode = "Timed mock" if row.get("mode") == "mock" else "Practice quiz"
-                item_cols = st.columns([2.2, 1.1, 0.8], gap="small")
+        for row in attempts[:4]:
+            stamp = str(row.get("completed_at") or row.get("created_at") or "")
+            stamp = stamp.replace("T", " ")[:16]
+            mode = "Timed mock" if row.get("mode") == "mock" else "Practice quiz"
+            with st.container(border=True):
+                item_cols = st.columns([1.5, 1], gap="small")
                 item_cols[0].markdown(f"**{escape(str(row.get('subject') or 'Practice session'))}**")
                 item_cols[0].caption(f"{escape(stamp)} · {mode}")
                 item_cols[1].markdown(f"**{int(row.get('score') or 0)}%**")
                 item_cols[1].caption(f"{int(row.get('correct') or 0)}/{int(row.get('total') or 0)} correct")
-                item_cols[2].markdown(
-                    '<span class="v2-history-label">COMPLETED</span>',
-                    unsafe_allow_html=True,
-                )
-                st.divider()
-            st.button(
-                "View full practice history",
-                key="v2_full_history",
-                on_click=_go_to_workspace,
-                args=(0,),
-                use_container_width=True,
-            )
+        st.button(
+            "View full practice history",
+            key="v2_full_history",
+            on_click=_go_to_workspace,
+            args=(0,),
+            use_container_width=True,
+        )
     else:
         with st.container(border=True):
             st.markdown('<div class="v2-empty-icon">✳</div>', unsafe_allow_html=True)

@@ -39,7 +39,7 @@ class Config:
     
     # Model defaults
     DEFAULT_OPENAI_MODEL = "gpt-4o-mini"  # Change to gpt-4o, gpt-4.1, etc. as needed
-    DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"  # Current lightweight Gemini model default
+    DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"  # Current model recommended by the configured Gemini API
     DEFAULT_CLAUDE_MODEL = "claude-3-5-sonnet-20241022"
     DEFAULT_GROK_MODEL = "grok-2"
     DEFAULT_OLLAMA_MODEL = "phi3"  # Default Ollama model - lightweight and efficient

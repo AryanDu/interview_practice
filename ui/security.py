@@ -10,8 +10,12 @@ logger = logging.getLogger(__name__)
 
 def render_security_testing_tab():
     """Run the security suite and keep results visible across Streamlit reruns."""
-    st.header("🔒 Security Testing (Jailbreak Tests)")
-    st.warning("⚠️ This tab runs security tests to validate the application's security guards.")
+    st.markdown(
+        '<section class="v2-workspace-intro"><div class="v2-page-kicker">GUARDRAILS & TRUST</div>'
+        '<h1>Security Testing</h1><p>Run the existing jailbreak test suite, inspect results and export the output for review.</p></section>',
+        unsafe_allow_html=True,
+    )
+    st.warning("This runs security tests against the application's existing guardrails; it does not change authentication or access settings.")
 
     if st.button("🚀 Run Jailbreak Tests", type="primary"):
         try:
@@ -28,7 +32,9 @@ def render_security_testing_tab():
 
     results_df = st.session_state.get("security_test_results")
     if results_df is None:
-        st.info("Run the test suite to view results and enable the Excel export.")
+        with st.container(border=True):
+            st.markdown("### No test run yet.")
+            st.write("Run the suite when you're ready. Results will stay visible during this session and can be exported to Excel.")
         return
 
     st.dataframe(results_df, use_container_width=True)

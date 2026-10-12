@@ -1,4 +1,6 @@
 """Regression checks for V2's read-only dashboard helpers."""
+from types import SimpleNamespace
+
 import ui.dashboard as dashboard
 
 
@@ -27,9 +29,9 @@ def test_topic_accuracy_handles_missing_or_zero_attempts():
 
 
 def test_dashboard_shortcut_keeps_existing_workspace_indexes(monkeypatch):
-    fake_state = {}
+    fake_state = SimpleNamespace()
     monkeypatch.setattr(dashboard.st, "session_state", fake_state)
 
     dashboard._go_to_workspace(2)
 
-    assert fake_state["active_tab"] == 2
+    assert fake_state.active_tab == 2

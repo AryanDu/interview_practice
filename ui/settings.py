@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from ui.quiz_tracker import DEFAULT_DAILY_GOAL, _get_daily_goal, _save_daily_goal
+from ui.quiz_tracker import DEFAULT_DAILY_GOAL, _db, _get_daily_goal, _save_daily_goal
 
 
 _SETTINGS_CSS = """
@@ -18,8 +18,86 @@ _SETTINGS_CSS = """
 """
 
 
+def _load_preference(user_id: str, key: str, default: str) -> str:
+    """Read one user preference from the existing generic user-settings table."""
+    if not user_id:
+        return default
+    conn = None
+    try:
+        conn = _db()
+        row = conn.execute(
+            "SELECT setting_value FROM user_settings WHERE session_id = ? AND setting_key = ?",
+            (user_id, key),
+        ).fetchone()
+        return str(row["setting_value"]) if row else default
+    except Exception:
+        return default
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def _save_preference(user_id: str, preference_key: str, state_key: str) -> None:
+    """Persist a presentation preference without creating or altering a table."""
+    if not user_id:
+        return
+    value = str(st.session_state.get(state_key, ""))
+    conn = None
+    try:
+        conn = _db()
+        with conn:
+            conn.execute(
+                "INSERT INTO user_settings(session_id, setting_key, setting_value) VALUES (?, ?, ?) "
+                "ON CONFLICT(session_id, setting_key) DO UPDATE SET setting_value = excluded.setting_value",
+                (user_id, preference_key, value),
+            )
+    except Exception:
+        # Preferences are non-critical; never block a practice or interview workflow.
+        st.toast("Your preference couldn't be saved just now.", icon="⚠️")
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def load_user_preferences(user_id: str) -> None:
+    """Load V2 preferences once per signed-in profile."""
+    if st.session_state.get("_v2_preferences_loaded_for") == user_id:
+        return
+    defaults = {
+        "v2_landing_preference": "Command Center",
+        "v2_compact_layout": "False",
+        "v2_reduce_motion": "False",
+    }
+    for key, default in defaults.items():
+        value = _load_preference(user_id, key, default)
+        if key in {"v2_compact_layout", "v2_reduce_motion"}:
+            st.session_state[key] = value.casefold() in {"1", "true", "yes", "on"}
+        else:
+            st.session_state[key] = value if value in {"Command Center", "Practice Hub"} else default
+    st.session_state["_v2_preferences_loaded_for"] = user_id
+
+
+def apply_user_preferences() -> None:
+    """Apply optional viewing preferences globally without changing business logic."""
+    if st.session_state.get("v2_compact_layout"):
+        st.markdown(
+            "<style>[data-testid='stMetric']{padding:.65rem!important}"
+            "[data-testid='stVerticalBlockBorderWrapper']{border-radius:12px!important}"
+            "[data-testid='stMainBlockContainer']{padding-top:.7rem!important}</style>",
+            unsafe_allow_html=True,
+        )
+    if st.session_state.get("v2_reduce_motion"):
+        st.markdown(
+            "<style>*,*::before,*::after{animation:none!important;transition:none!important;"
+            "scroll-behavior:auto!important}</style>",
+            unsafe_allow_html=True,
+        )
+
+
 def render_settings(user: dict) -> None:
     """Render profile, account, goals, appearance preferences, and sign-out."""
+    user_id = str(user.get("id") or st.session_state.get("auth_user_id") or "")
+    load_user_preferences(user_id)
     st.markdown(_SETTINGS_CSS, unsafe_allow_html=True)
     st.markdown(
         """
@@ -79,18 +157,24 @@ def render_settings(user: dict) -> None:
             "Start each visit at",
             options=["Command Center", "Practice Hub"],
             key="v2_landing_preference",
-            help="Applies to a new app session in this browser session; it doesn't change saved practice data.",
+            on_change=_save_preference,
+            args=(user_id, "v2_landing_preference", "v2_landing_preference"),
+            help="Saved to your account. Affects where a new app session opens.",
         )
         st.markdown('<div class="v2-settings-section">COMFORT & DENSITY</div>', unsafe_allow_html=True)
         st.checkbox(
             "Compact cards and tighter spacing",
             key="v2_compact_layout",
-            help="Affects presentation in this browser session only; no study data is changed.",
+            on_change=_save_preference,
+            args=(user_id, "v2_compact_layout", "v2_compact_layout"),
+            help="Saved to your account. Changes presentation only.",
         )
         st.checkbox(
             "Reduce decorative motion",
             key="v2_reduce_motion",
-            help="A visual preference for this session. Core interactions and timers are unchanged.",
+            on_change=_save_preference,
+            args=(user_id, "v2_reduce_motion", "v2_reduce_motion"),
+            help="Saved to your account. Core interactions and timers are unchanged.",
         )
         if st.session_state.get("v2_compact_layout"):
             st.markdown(
@@ -105,7 +189,7 @@ def render_settings(user: dict) -> None:
                 "scroll-behavior:auto!important}</style>",
                 unsafe_allow_html=True,
             )
-        st.caption("These two appearance preferences currently apply to this session; account and study data stay unchanged.")
+        st.caption("Appearance preferences are stored in the existing per-user settings table; no schema change is required.")
 
     st.markdown("## Sign out")
     with st.container(border=True):

@@ -2,10 +2,13 @@
 Interview Prep tab - Study Mode
 """
 import streamlit as st
+import logging
 from utils.prompts import PromptEngineer
 from utils.validators import validate_interview_request
 from utils.cost_calculator import CostCalculator
 from chains.interview_chains import InterviewChain
+
+logger = logging.getLogger(__name__)
 
 
 def render_interview_prep_tab(config):
@@ -62,7 +65,7 @@ def render_interview_prep_tab(config):
         is_safe, security_error = st.session_state.security_guard.comprehensive_check(
             user_input=user_input,
             job_description=job_description,
-            user_id="streamlit_user"
+            user_id=st.session_state.get("auth_user_id", "local-profile")
         )
         
         if not is_safe:
@@ -82,8 +85,9 @@ def render_interview_prep_tab(config):
                 if is_duplicate:
                     duplicate_found = True
                     st.warning("⚠️ Similar content found in database. Consider generating new questions.")
-            except Exception as e:
-                st.warning(f"Duplicate check failed: {e}")
+            except Exception:
+                logger.exception("Interview duplicate check failed")
+                st.warning("Duplicate detection is temporarily unavailable; generation can continue.")
         
         # Generate prompts using selected technique
         prompt_engineer = PromptEngineer()
@@ -131,8 +135,9 @@ def render_interview_prep_tab(config):
                     )
                     if rag_context:
                         prompts["user"] = f"Context from similar interview preparations:\n\n{rag_context}\n\n---\n\n{prompts['user']}"
-                except Exception as e:
-                    st.warning(f"RAG context retrieval failed: {e}")
+                except Exception:
+                    logger.exception("Interview RAG context retrieval failed")
+                    st.warning("Retrieved context is temporarily unavailable; continuing without it.")
             
             # Use LangChain if requested
             response = None
@@ -149,8 +154,9 @@ def render_interview_prep_tab(config):
                     )
                     response_text = result.get("questions", "No response generated")
                     response = {"content": response_text, "usage": {}}
-                except Exception as e:
-                    st.error(f"LangChain error: {e}")
+                except Exception:
+                    logger.exception("LangChain question generation failed")
+                    st.error("Could not generate the study pack with the selected chain. Try again or choose another method.")
                     response_text = None
             else:
                 # Generate response using LLM manager
@@ -196,8 +202,9 @@ def render_interview_prep_tab(config):
                             )
                             st.markdown("### LLM Validation")
                             st.markdown(validation["validation"])
-                        except Exception as e:
-                            st.warning(f"Validation failed: {e}")
+                        except Exception:
+                            logger.exception("Second-model validation failed")
+                            st.warning("Second-model validation is unavailable; the original response is still shown.")
                 
                 # Store in vector database
                 if st.session_state.vector_db:
@@ -213,8 +220,9 @@ def render_interview_prep_tab(config):
                                 "provider": config["provider"]
                             }
                         )
-                    except Exception as e:
-                        st.warning(f"Failed to store in vector database: {e}")
+                    except Exception:
+                        logger.exception("Vector-store write failed")
+                        st.warning("The generated pack could not be saved to the optional vector store.")
                 
                 # Generate image
                 if config["generate_image"] and st.session_state.image_generator:
@@ -223,8 +231,9 @@ def render_interview_prep_tab(config):
                             image_result = st.session_state.image_generator.generate_motivational_image()
                             if image_result.get("success"):
                                 st.image(image_result["url"], caption="Motivational Image for Interview Prep")
-                        except Exception as e:
-                            st.warning(f"Image generation failed: {e}")
+                        except Exception:
+                            logger.exception("Optional image generation failed")
+                            st.warning("The optional motivational image could not be generated.")
                 
                 # Add to conversation history
                 st.session_state.conversation_history.append({
@@ -235,6 +244,6 @@ def render_interview_prep_tab(config):
                     "response": response_text
                 })
                 
-        except Exception as e:
-            st.error(f"Error generating response: {str(e)}")
-            st.exception(e)
+        except Exception:
+            logger.exception("Study-pack generation failed")
+            st.error("Could not generate the study pack. Please retry or check the deployment logs.")

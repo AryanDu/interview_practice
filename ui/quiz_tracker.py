@@ -8,6 +8,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import logging
 import os
 import random
 import sqlite3
@@ -40,6 +41,7 @@ DEFAULT_DAILY_GOAL = 20
 # This identifier is only a local-development fallback. Deployed users are keyed
 # by the pseudonymous identifier returned from ui.auth.require_authenticated_user().
 DEFAULT_PROFILE_ID = os.getenv("QUIZ_PROFILE_ID", "local-profile").strip() or "local-profile"
+logger = logging.getLogger(__name__)
 _PG_POOL: ConnectionPool | None = None
 _PG_POOL_URL = ""
 _PG_POOL_LOCK = threading.Lock()
@@ -873,8 +875,9 @@ def render_quiz_tracker_tab(user_id: str | None = None) -> None:
                     try:
                         _generate_and_start(api_key, weak_topic, "Easy", 5, "", "practice", 0)
                         st.rerun()
-                    except Exception as exc:
-                        st.error(f"Could not generate the revision quiz: {exc}")
+                    except Exception:
+                        logger.exception("Weak-topic revision quiz generation failed")
+                        st.error("Could not generate the revision quiz. Please try again or check the deployment logs.")
         else:
             st.info("Complete at least 3 questions in a topic before weak-topic practice becomes available.")
 
@@ -906,8 +909,9 @@ def render_quiz_tracker_tab(user_id: str | None = None) -> None:
                 st.rerun()
             except (ValueError, RuntimeError) as exc:
                 st.error(f"Quiz generation failed: {exc}")
-            except Exception as exc:
-                st.error(f"Unexpected quiz-generation error: {exc}")
+            except Exception:
+                logger.exception("Unexpected quiz-generation failure")
+                st.error("Quiz generation failed unexpectedly. Please retry or check the deployment logs.")
 
     _render_active_quiz(session_id)
     st.divider()
@@ -915,4 +919,4 @@ def render_quiz_tracker_tab(user_id: str | None = None) -> None:
     _render_attempt_history(session_id, attempts)
     with st.expander("Review wrong answers", expanded=False):
         _render_wrong_answer_revision(session_id)
-    st.caption("Storage note: progress currently uses SQLite. Streamlit Cloud may reset local files during some restarts or redeployments; the final persistence approach is intentionally still undecided.")
+    st.caption("Storage note: deployed multi-user mode uses PostgreSQL when DATABASE_URL is configured; local development falls back to SQLite.")

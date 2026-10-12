@@ -30,3 +30,16 @@ def test_input_sanitization_removes_nulls_and_bounds_text():
     cleaned = guard.sanitize_input("  hello\x00   world " + "x" * 12000)
     assert "\x00" not in cleaned
     assert len(cleaned) <= 10000
+
+
+def test_rate_limit_is_shared_between_guard_instances():
+    import uuid
+
+    user_id = f"multi-session-{uuid.uuid4().hex}"
+    first = SecurityGuard()
+    second = SecurityGuard()
+    allowed, _ = first.rate_limit_check(user_id, max_requests=1)
+    blocked, message = second.rate_limit_check(user_id, max_requests=1)
+    assert allowed
+    assert not blocked
+    assert "Rate limit exceeded" in message

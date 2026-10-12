@@ -2,8 +2,11 @@
 Mock Interview tab - Practice with Real Questions
 """
 import streamlit as st
+import logging
 import uuid
 from ui.mock_interview_reports import build_report_payload, save_report, render_reports_panel
+
+logger = logging.getLogger(__name__)
 from utils.prompts import PromptEngineer
 from utils.validators import validate_interview_request
 
@@ -267,8 +270,9 @@ Return ONLY the questions, nothing else."""
         else:
             st.error("Failed to generate questions")
             
-    except Exception as e:
-        st.error(f"Error generating questions: {str(e)}")
+    except Exception:
+        logger.exception("Mock interview question generation failed")
+        st.error("Could not generate interview questions. Please try again or check the deployment logs.")
 
 
 def _evaluate_mock_interview(config):
@@ -374,5 +378,6 @@ Questions and candidate answers:
                 st.warning("Score is ready, but some ideal answers were missing from the AI response.")
             st.rerun()
 
-        except Exception as e:
-            st.error(f"Error evaluating answers: {e}")
+        except Exception:
+            logger.exception("Mock interview evaluation failed")
+            st.error("Could not evaluate this interview. Your answers remain in this session; please retry.")

@@ -4,6 +4,11 @@ Visual Tools tab - Result cards and visual analytics
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 import io
+import logging
+import re
+from utils.html_safety import escape_html_text, safe_filename_component
+
+logger = logging.getLogger(__name__)
 
 
 def render_visual_tools_tab():
@@ -67,17 +72,18 @@ def render_visual_tools_tab():
         
         if st.button("🎨 Generate Result Card", type="primary", use_container_width=True):
             st.session_state.interview_results = {
-                "name": result_name or "Candidate",
-                "position": position_applied or "Position",
-                "mock_interview_score": mock_interview_score,
-                "improvement_level": improvement_level,
-                "skills_tested": skills_tested if skills_tested else ["Skills"]
+                "name": (str(result_name or "Candidate").strip()[:80] or "Candidate"),
+                "position": (str(position_applied or "Position").strip()[:120] or "Position"),
+                "mock_interview_score": int(mock_interview_score),
+                "improvement_level": str(improvement_level)[:30],
+                "skills_tested": [str(skill).strip()[:60] for skill in skills_tested if str(skill).strip()][:12] or ["Skills"]
             }
             try:
                 st.session_state.result_card_image = _create_beautiful_card_image(st.session_state.interview_results)
                 st.success("✅ Beautiful card generated successfully!")
-            except Exception as e:
-                st.error(f"Error generating card: {e}")
+            except Exception:
+                logger.exception("Visual result-card generation failed")
+                st.error("Could not generate the result card. Please check the inputs and try again.")
     
     with col2:
         st.subheader("⚙️ Options")
@@ -93,6 +99,12 @@ def render_visual_tools_tab():
         
         result = st.session_state.interview_results
         
+        # Escape all user/AI-controlled text before inserting it into custom HTML.
+        safe_name = escape_html_text(result.get("name", "Candidate"), max_length=80)
+        safe_position = escape_html_text(result.get("position", "Position"), max_length=120)
+        safe_level = escape_html_text(result.get("improvement_level", "Beginner"), max_length=30)
+        safe_skills = escape_html_text(" • ".join(result.get("skills_tested", [])[:4]), max_length=300)
+
         # Create animated HTML card
         animated_card_html = f"""
         <style>
@@ -204,11 +216,11 @@ def render_visual_tools_tab():
         
         <div class="interview-card">
             <div class="card-title">✨ INTERVIEW EXCELLENCE ✨</div>
-            <div class="card-name">{result['name']}</div>
-            <div class="card-position">Position: {result['position']}</div>
+            <div class="card-name">{safe_name}</div>
+            <div class="card-position">Position: {safe_position}</div>
             <div class="card-score">{result['mock_interview_score']}%</div>
-            <div class="card-level">Level: {result['improvement_level']} ⭐</div>
-            <div class="card-skills">Skills: {' • '.join(result['skills_tested'][:4])}</div>
+            <div class="card-level">Level: {safe_level} ⭐</div>
+            <div class="card-skills">Skills: {safe_skills}</div>
             <div class="card-footer">🚀 Keep Learning • Keep Growing 🚀</div>
         </div>
         """
@@ -220,7 +232,7 @@ def render_visual_tools_tab():
             st.download_button(
                 label="📥 Download as PNG",
                 data=st.session_state.result_card_image.getvalue(),
-                file_name=f"interview_result_{result['name'].replace(' ', '_')}.png",
+                file_name=f"interview_result_{safe_filename_component(result['name'])}.png",
                 mime="image/png",
                 use_container_width=True,
                 key="download_interview_result_card",

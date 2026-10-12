@@ -2,9 +2,12 @@
 Sidebar configuration and setup for the Interview Practice App
 """
 import streamlit as st
+import logging
 import hashlib
 from pathlib import Path
 from config import Config
+
+logger = logging.getLogger(__name__)
 from utils.prompts import PromptEngineer
 
 
@@ -143,9 +146,10 @@ def initialize_session_state():
             profile_scope = hashlib.sha256(profile_id.encode('utf-8')).hexdigest()[:24]
             vector_path = str(Path(Config.VECTOR_DB_PATH) / profile_scope)
             st.session_state.vector_db = VectorDatabase(db_path=vector_path)
-        except Exception as e:
+        except Exception:
+            logger.exception("User-scoped vector database initialization failed")
             st.session_state.vector_db = None
-            st.warning(f"Vector database initialization failed: {e}")
+            st.warning("The optional vector database is unavailable; core interview features can still be used.")
     if 'image_generator' not in st.session_state:
         try:
             from utils.image_gen import ImageGenerator

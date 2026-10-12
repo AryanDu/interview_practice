@@ -5,9 +5,10 @@
 - Google OIDC is required; report and quiz history are scoped to the pseudonymous authenticated user ID.
 - The public deployment must configure a non-empty `ALLOWED_EMAILS` allowlist, a PostgreSQL `DATABASE_URL`, and the documented OIDC values. Do not commit secrets to this repository.
 - Account changes clear old Streamlit session state (chat history, current mock interview/report and cached vector/LLM objects) before the new account's UI is rendered.
-- Streamlit detailed error display is disabled. User answers, questions, domains and skill names included in PDF paragraphs are escaped, length-bounded, and rendered as plain text.
+- Streamlit detailed error display is disabled. User/AI-controlled text used in custom Chat Assistant and result-card HTML is HTML-escaped; PDF text is escaped and length-bounded; app-facing provider errors are generic while detailed exceptions go to server logs.
 - The checked-in generated Chroma vector database was removed. The runtime vector database path is now scoped to a SHA-256-derived per-user directory; new database files are ignored by Git.
 - Vector document identifiers use SHA-256 instead of MD5.
+- SecurityGuard request limits are shared across sessions within a single Python process and use a lock; they are not a distributed quota across multiple Cloud replicas. Provider-side quotas and persistent/distributed rate limiting are still needed for a horizontally scaled deployment.
 
 ## ChromaDB advisory exception (reviewed 2026-10-13)
 

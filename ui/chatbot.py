@@ -3,6 +3,7 @@ Chatbot tab - Conversational Interview Assistant
 """
 import streamlit as st
 import logging
+from utils.html_safety import escape_html_text
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +77,11 @@ def render_chatbot_tab(config):
     with chat_placeholder:
         for message in st.session_state.conversation_chat_messages:
             if message["role"] == "user":
-                st.markdown(f'<div class="user-message"><div class="user-message-content">👤 {message["content"]}</div></div>', unsafe_allow_html=True)
+                safe_content = escape_html_text(message.get("content", ""), max_length=12000)
+                st.markdown(f'<div class="user-message"><div class="user-message-content">👤 {safe_content}</div></div>', unsafe_allow_html=True)
             else:
-                st.markdown(f'<div class="bot-message"><div class="bot-message-content">🤖 {message["content"]}</div></div>', unsafe_allow_html=True)
+                safe_content = escape_html_text(message.get("content", ""), max_length=12000)
+                st.markdown(f'<div class="bot-message"><div class="bot-message-content">🤖 {safe_content}</div></div>', unsafe_allow_html=True)
     
     # Show initial prompt if no messages
     if not st.session_state.conversation_chat_messages:
@@ -132,9 +135,9 @@ Provide detailed, professional, and helpful answers to their questions."""
                         assistant_response = response["content"]
                     else:
                         assistant_response = "I couldn't generate a response. Please try again."
-                except Exception as e:
-                    logger.error(f"Error generating response: {e}")
-                    assistant_response = f"I encountered an error: {str(e)}. Please try again."
+                except Exception:
+                    logger.exception("Chat response generation failed")
+                    assistant_response = "Sorry, I couldn't generate a response right now. Please try again."
                 
                 # Add assistant response
                 st.session_state.conversation_chat_messages.append({

@@ -2,9 +2,14 @@
 Security guards to prevent misuse of the application
 """
 import re
-from typing import Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional
 from datetime import datetime, timedelta
 from collections import defaultdict
+import threading
+
+
+_SHARED_RATE_LIMIT_STORE: Dict[str, List[datetime]] = defaultdict(list)
+_SHARED_RATE_LIMIT_LOCK = threading.Lock()
 
 
 class SecurityGuard:
@@ -78,21 +83,25 @@ class SecurityGuard:
     
     def rate_limit_check(self, user_id: str, max_requests: int = 50, window_hours: int = 1) -> Tuple[bool, Optional[str]]:
         """Check if user has exceeded rate limit"""
+        if not user_id:
+            return False, "A signed-in user identity is required for rate limiting."
         now = datetime.now()
         window_start = now - timedelta(hours=window_hours)
-        
-        # Clean old entries
-        self.rate_limit_store[user_id] = [
-            req_time for req_time in self.rate_limit_store[user_id]
-            if req_time > window_start
-        ]
-        
-        # Check limit
-        if len(self.rate_limit_store[user_id]) >= max_requests:
-            return False, f"Rate limit exceeded. Maximum {max_requests} requests per {window_hours} hour(s)."
-        
-        # Record this request
-        self.rate_limit_store[user_id].append(now)
+
+        # Enforce the per-user limit across browser sessions in this app process.
+        # Keep a local snapshot for the current session's analytics only.
+        with _SHARED_RATE_LIMIT_LOCK:
+            recent = [
+                req_time for req_time in _SHARED_RATE_LIMIT_STORE[user_id]
+                if req_time > window_start
+            ]
+            _SHARED_RATE_LIMIT_STORE[user_id] = recent
+            self.rate_limit_store[user_id] = list(recent)
+            if len(recent) >= max_requests:
+                return False, f"Rate limit exceeded. Maximum {max_requests} requests per {window_hours} hour(s)."
+            recent.append(now)
+            _SHARED_RATE_LIMIT_STORE[user_id] = recent
+            self.rate_limit_store[user_id] = list(recent)
         return True, None
     
     def validate_system_prompt(self, system_prompt: str) -> Tuple[bool, Optional[str]]:
@@ -166,7 +175,7 @@ class SecurityGuard:
         
         return True, None
     
-    def get_security_report(self) -> Dict[str, any]:
+    def get_security_report(self) -> Dict[str, Any]:
         """Get security statistics"""
         total_requests = sum(len(requests) for requests in self.rate_limit_store.values())
         unique_users = len(self.rate_limit_store)

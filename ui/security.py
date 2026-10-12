@@ -1,8 +1,11 @@
 """Security Testing tab - Jailbreak tests with a persistent results view and working Excel export."""
 from io import BytesIO
+import logging
 
 import pandas as pd
 import streamlit as st
+
+logger = logging.getLogger(__name__)
 
 
 def render_security_testing_tab():
@@ -18,8 +21,9 @@ def render_security_testing_tab():
                 tester = JailbreakTester()
                 st.session_state.security_test_results = tester.run_all_tests()
             st.success("✅ Tests completed!")
-        except Exception as exc:
-            st.error(f"Could not run the security suite: {exc}")
+        except Exception:
+            logger.exception("Security test suite failed")
+            st.error("The security suite could not run. Please check the deployment logs.")
             return
 
     results_df = st.session_state.get("security_test_results")
@@ -39,5 +43,6 @@ def render_security_testing_tab():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
-    except Exception as exc:
-        st.error(f"Excel export failed: {exc}")
+    except Exception:
+        logger.exception("Security result Excel export failed")
+        st.error("The Excel export could not be created. Please try again.")

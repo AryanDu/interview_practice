@@ -57,7 +57,7 @@ def _navigate(index: int, focus: str = "", topic: str = "") -> None:
         st.session_state.v2_workspace_picker = _WORKSPACE_LABELS[index]
     if focus:
         st.session_state.quiz_tracker_focus = focus
-    elif index != 0:
+    else:
         st.session_state.pop("quiz_tracker_focus", None)
     if topic:
         st.session_state.quiz_tracker_subject_input = topic
@@ -254,6 +254,8 @@ def main():
     # The keyed picker is the single source of truth after manual navigation.
     selected_index = workspace_order[workspace_options.index(selected_label)]
     st.session_state.active_tab = selected_index
+    if selected_index != 0:
+        st.session_state.pop("quiz_tracker_focus", None)
 
     st.markdown("---")
 

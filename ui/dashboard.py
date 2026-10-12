@@ -240,6 +240,7 @@ def _go_to_workspace(index: int) -> None:
     }
     if index in labels:
         st.session_state.v2_workspace_picker = labels[index]
+    st.session_state.pop("quiz_tracker_focus", None)
 
 
 def _accuracy(topics: list[dict]) -> list[dict]:

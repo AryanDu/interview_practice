@@ -619,6 +619,7 @@ def _set_quiz_state(questions: list[dict], subject: str, difficulty: str, mode: 
     st.session_state.quiz_tracker_submitted = False
     st.session_state.quiz_tracker_auto_submitted = False
     st.session_state.quiz_tracker_last_result = None
+    st.session_state.quiz_tracker_current_question_index = 0
 
 
 def _answer_widget_key(session_id: str, index: int) -> str:
@@ -769,15 +770,44 @@ def _render_wrong_answer_revision(session_id: str) -> None:
                 st.caption(row["explanation"])
 
 
+
+_QUIZ_CSS = """
+<style>
+.v2-workspace-intro { padding:1.25rem 1.45rem; margin-bottom:1rem; border:1px solid #E9E5D5; border-radius:18px; background:linear-gradient(110deg,#FFFFFF 0%,#FFFFFF 75%,#FFF4B8 100%); }
+.v2-page-kicker,.v2-quiz-kicker { color:#3556D8; font-size:.67rem; font-weight:850; letter-spacing:.12em; }
+.v2-workspace-intro h1 { margin:.45rem 0 .35rem; color:#1B2340; letter-spacing:-.055em; font-size:clamp(1.9rem,3.5vw,2.65rem); }
+.v2-workspace-intro p { margin:0; max-width:65ch; color:#68718A; line-height:1.55; }
+.v2-question-counter { color:#3556D8; font-size:.68rem; font-weight:900; letter-spacing:.12em; margin-bottom:.7rem; }
+</style>
+"""
+
+
+def _jump_to_question(index: int) -> None:
+    """Move the exam navigator to a valid question without touching saved answers."""
+    quiz = st.session_state.get("quiz_tracker_quiz") or []
+    if quiz:
+        st.session_state.quiz_tracker_current_question_index = min(max(int(index), 0), len(quiz) - 1)
+
+
 def _render_active_quiz(session_id: str) -> None:
     quiz = st.session_state.get("quiz_tracker_quiz")
     if not quiz:
         return
+
     submitted = bool(st.session_state.get("quiz_tracker_submitted", False))
     mode = st.session_state.get("quiz_tracker_mode", "practice")
+    token = st.session_state.get("quiz_tracker_attempt_token", "current")
     st.divider()
-    st.subheader(f"{'Timed mock test' if mode == 'mock' else 'Practice quiz'}: {st.session_state.quiz_tracker_subject}")
-    st.caption(f"{st.session_state.quiz_tracker_difficulty} · {len(quiz)} questions · Model: {st.session_state.get('quiz_tracker_model_used', 'N/A')}")
+
+    # Active question index is presentation state only; answer keys and save flow
+    # are the existing implementation, so each selected option remains persisted.
+    current_index = int(st.session_state.get("quiz_tracker_current_question_index", 0))
+    current_index = min(max(current_index, 0), len(quiz) - 1)
+    st.session_state.quiz_tracker_current_question_index = current_index
+
+    st.markdown('<div class="v2-quiz-kicker">ACTIVE SESSION</div>', unsafe_allow_html=True)
+    st.subheader(f"{'Timed mock exam' if mode == 'mock' else 'Practice session'} · {st.session_state.get('quiz_tracker_subject', 'Quiz')}")
+    st.caption(f"{st.session_state.get('quiz_tracker_difficulty', 'Mixed')} difficulty · {len(quiz)} questions · {st.session_state.get('quiz_tracker_model_used', 'AI-generated')}")
 
     if mode == "mock" and not submitted:
         duration = int(st.session_state.get("quiz_tracker_duration_seconds") or 600)
@@ -786,63 +816,176 @@ def _render_active_quiz(session_id: str) -> None:
         if started.tzinfo is None:
             started = started.replace(tzinfo=LOCAL_TZ)
         remaining = max(0, duration - int((_now() - started.astimezone(LOCAL_TZ)).total_seconds()))
-        # Refresh only while a timed test is in progress, so the countdown is live.
-        st_autorefresh(interval=1000, key=f"quiz_timer_{st.session_state.get('quiz_tracker_attempt_token', 'active')}")
-        st.metric("Time remaining", f"{remaining // 60:02d}:{remaining % 60:02d}")
+        # Preserve the existing live timer and auto-submit path.
+        st_autorefresh(interval=1000, key=f"quiz_timer_{token}")
+        timer_col, answered_col, unanswered_col = st.columns(3, gap="small")
+        timer_col.metric("Time remaining", f"{remaining // 60:02d}:{remaining % 60:02d}")
+        current_answers = _answers_from_widgets(session_id, quiz)
+        answered_col.metric("Answered", f"{len(current_answers)} / {len(quiz)}")
+        unanswered_col.metric("Unanswered", len(quiz) - len(current_answers))
         if remaining <= 0:
             _finish_current_quiz(session_id, _answers_from_widgets(session_id, quiz), auto_submit=True)
             st.rerun()
+    else:
+        current_answers = _answers_from_widgets(session_id, quiz) if not submitted else (
+            st.session_state.get("quiz_tracker_answers") or {}
+        )
 
     if not submitted:
-        # Keep answers outside a Streamlit form so they sync on every selection.
-        # That lets the timed mock safely auto-submit the latest selections at expiry.
-        for index, question in enumerate(quiz):
-            st.markdown(f"**Q{index + 1}. {question['question']}**")
+        st.markdown("### Question navigator")
+        st.caption("Select any number to move between questions. Your choices are kept as you navigate.")
+        for row_start in range(0, len(quiz), 5):
+            indices = list(range(row_start, min(row_start + 5, len(quiz))))
+            nav_cols = st.columns(len(indices), gap="small")
+            for col, question_index in zip(nav_cols, indices):
+                selected = question_index in current_answers
+                number = question_index + 1
+                prefix = "✓ " if selected else ""
+                with col:
+                    st.button(
+                        f"{prefix}{number}",
+                        key=f"quiz_nav_{token}_{question_index}",
+                        type="primary" if question_index == current_index else "secondary",
+                        use_container_width=True,
+                        on_click=_jump_to_question,
+                        args=(question_index,),
+                        help=(
+                            f"Question {number} — answered"
+                            if selected else f"Question {number} — not answered"
+                        ),
+                    )
+
+        answered_count = len(current_answers)
+        st.progress(answered_count / max(1, len(quiz)), text=f"{answered_count} of {len(quiz)} answered")
+        question = quiz[current_index]
+        with st.container(border=True):
+            st.markdown(f'<div class="v2-question-counter">QUESTION {current_index + 1:02d} / {len(quiz):02d}</div>', unsafe_allow_html=True)
+            st.markdown(f"### {question['question']}")
+            st.caption(f"Topic: {question.get('topic') or st.session_state.get('quiz_tracker_subject', 'General')}")
             st.radio(
                 "Choose one answer",
                 options=list(range(4)),
                 format_func=lambda choice, opts=question["options"]: f"{'ABCD'[choice]}. {opts[choice]}",
-                key=_answer_widget_key(session_id, index),
+                key=_answer_widget_key(session_id, current_index),
                 index=None,
                 label_visibility="collapsed",
             )
-            st.caption(f"Topic: {question['topic']}")
-        if st.button("Submit mock test" if mode == "mock" else "Submit answers", type="primary", key=f"submit_quiz_{st.session_state.get('quiz_tracker_attempt_token', 'current')}"):
-            _finish_current_quiz(session_id, _answers_from_widgets(session_id, quiz))
-            st.rerun()
+
+        st.write("")
+        previous_col, next_col, submit_col = st.columns([1, 1, 1.3], gap="small")
+        with previous_col:
+            st.button(
+                "← Previous",
+                key=f"quiz_prev_{token}",
+                use_container_width=True,
+                disabled=current_index == 0,
+                on_click=_jump_to_question,
+                args=(max(0, current_index - 1),),
+            )
+        with next_col:
+            st.button(
+                "Next →",
+                key=f"quiz_next_{token}",
+                use_container_width=True,
+                disabled=current_index >= len(quiz) - 1,
+                on_click=_jump_to_question,
+                args=(min(len(quiz) - 1, current_index + 1),),
+            )
+        with submit_col:
+            if st.button(
+                "Submit mock exam" if mode == "mock" else "Finish & review",
+                key=f"submit_quiz_{token}",
+                type="primary",
+                use_container_width=True,
+            ):
+                _finish_current_quiz(session_id, _answers_from_widgets(session_id, quiz))
+                st.rerun()
         return
 
     correct, total = st.session_state.get("quiz_tracker_last_result") or (0, len(quiz))
     score = round(100 * correct / total) if total else 0
+    stored_answers = st.session_state.get("quiz_tracker_answers") or {}
+    unanswered = sum(1 for index in range(len(quiz)) if stored_answers.get(index) is None)
+
     if st.session_state.get("quiz_tracker_auto_submitted"):
-        st.warning("Time expired. Your mock test was submitted automatically using the answers selected before time ran out.")
-    st.metric("Your score", f"{score}%", f"{correct} of {total} correct")
-    unanswered = sum(1 for index in range(len(quiz)) if st.session_state.quiz_tracker_answers.get(index) is None)
-    st.caption(f"Unanswered questions: {unanswered}")
+        st.warning("Time ran out. Your mock exam was submitted using the answers selected before the timer ended.")
+
+    result_cols = st.columns(3, gap="medium")
+    result_cols[0].metric("Final score", f"{score}%")
+    result_cols[1].metric("Correct answers", f"{correct} / {total}")
+    result_cols[2].metric("Unanswered", unanswered)
+    st.progress(score / 100, text="Your result")
+
+    topic_stats = {}
     for index, question in enumerate(quiz):
-        selected = st.session_state.quiz_tracker_answers.get(index)
-        is_correct = selected == question["correct_index"]
-        st.markdown(f"**Q{index + 1}. {'✅' if is_correct else '❌'} {question['question']}**")
-        if selected is None:
-            st.write("Your answer: Not answered")
+        topic_name = str(question.get("topic") or "General")
+        entry = topic_stats.setdefault(topic_name, {"total": 0, "correct": 0})
+        entry["total"] += 1
+        if stored_answers.get(index) == question["correct_index"]:
+            entry["correct"] += 1
+
+    topic_rows = [
+        (name, data["correct"], data["total"], round(100 * data["correct"] / data["total"]))
+        for name, data in topic_stats.items()
+    ]
+    topic_rows.sort(key=lambda row: (row[3], -row[2]))
+    left, right = st.columns([1.2, 0.8], gap="medium")
+    with left:
+        st.markdown("### Topic breakdown")
+        for name, topic_correct, topic_total, accuracy in topic_rows:
+            st.progress(
+                accuracy / 100,
+                text=f"{name} · {accuracy}% · {topic_correct}/{topic_total} correct",
+            )
+    with right:
+        st.markdown("### Result summary")
+        if score >= 80:
+            st.success("Strong round. Review the questions you missed to lock in the details.")
+        elif score >= 50:
+            st.info("Good base. A targeted revision session can improve consistency.")
         else:
-            st.write(f"Your answer: {'ABCD'[selected]}. {question['options'][selected]}")
-        st.write(f"Correct answer: {'ABCD'[question['correct_index']]}. {question['options'][question['correct_index']]}")
-        st.write(f"**Topic:** {question['topic']}")
-        if question.get("explanation"):
-            st.caption(question["explanation"])
-        st.divider()
-    if st.button("Generate another quiz", type="primary", key=f"new_quiz_{st.session_state.get('quiz_tracker_attempt_token', 'current')}"):
+            st.warning("Treat this as a useful baseline. Review explanations, then retry the same topic.")
+        st.caption(f"{len(topic_rows)} topics covered · {unanswered} questions left unanswered")
+
+    st.markdown("### Question review")
+    st.caption("Open a question to compare your answer with the correct answer and explanation.")
+    for index, question in enumerate(quiz):
+        selected = stored_answers.get(index)
+        is_correct = selected == question["correct_index"]
+        state_label = "Correct" if is_correct else ("Unanswered" if selected is None else "Review")
+        icon = "✓" if is_correct else ("○" if selected is None else "!")
+        with st.expander(f"{icon}  Q{index + 1} · {question.get('topic') or 'General'} · {state_label}"):
+            st.markdown(f"**{question['question']}**")
+            if selected is None:
+                st.write("Your answer: Not answered")
+            elif isinstance(selected, int) and 0 <= selected < len(question["options"]):
+                st.write(f"Your answer: {'ABCD'[selected]}. {question['options'][selected]}")
+            st.write(f"Correct answer: {'ABCD'[question['correct_index']]}. {question['options'][question['correct_index']]}")
+            if question.get("explanation"):
+                st.caption(question["explanation"])
+
+    if st.button("Start another quiz", type="primary", key=f"new_quiz_{token}"):
         st.session_state.quiz_tracker_quiz = None
         st.session_state.quiz_tracker_submitted = False
         st.session_state.quiz_tracker_mode = "practice"
         st.session_state.quiz_tracker_answers = {}
+        st.session_state.quiz_tracker_current_question_index = 0
         st.rerun()
 
-
 def render_quiz_tracker_tab(user_id: str | None = None) -> None:
-    st.header("🧠 Quiz Studio & Progress Tracker")
-    st.write("Generate a quiz from a topic or your study notes, practise weak areas, and monitor your interview-preparation progress.")
+    st.markdown(_QUIZ_CSS, unsafe_allow_html=True)
+    focus = str(st.session_state.get("quiz_tracker_focus", ""))
+    st.markdown(
+        '<section class="v2-workspace-intro"><div class="v2-page-kicker">BUILD SKILL, TRACK PROGRESS</div>'
+        '<h1>Quiz Studio</h1><p>Turn a topic or your study material into focused practice. Every completed session updates your saved history.</p></section>',
+        unsafe_allow_html=True,
+    )
+    if focus == "pdf":
+        st.info("PDF & notes practice selected — upload a PDF, TXT or Markdown file, or paste material below.")
+    elif focus == "weak":
+        st.info("Weak-topic revision selected — your recorded accuracy will help choose the next topic.")
+    elif focus == "topic":
+        st.info("Topic search selected — your search term has been placed in the subject field.")
     session_id = user_id or st.session_state.get("auth_user_id") or DEFAULT_PROFILE_ID
 
     if not _api_key():
@@ -863,7 +1006,7 @@ def render_quiz_tracker_tab(user_id: str | None = None) -> None:
         if attempted >= 3:
             topic_rows.append((row["topic"], round(100 * correct / attempted), attempted))
     topic_rows.sort(key=lambda item: (item[1], -item[2]))
-    with st.expander("Practise a weak topic", expanded=False):
+    with st.expander("Practise a weak topic", expanded=(focus == "weak")):
         if topic_rows:
             weak_topic = st.selectbox("Choose a topic to revise", options=[row[0] for row in topic_rows], key="weak_topic_choice")
             st.caption("Topics are ranked by recorded accuracy and require at least 3 previous questions.")
@@ -882,15 +1025,16 @@ def render_quiz_tracker_tab(user_id: str | None = None) -> None:
             st.info("Complete at least 3 questions in a topic before weak-topic practice becomes available.")
 
     st.subheader("Create a quiz")
-    with st.form("quiz_generation_form"):
-        subject = st.text_input("Subject / topic", placeholder="e.g. Python, SQL, Machine Learning, DBMS")
-        difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
-        count = st.slider("Number of questions", min_value=5, max_value=20, value=10, step=5)
-        mode_label = st.radio("Session type", ["Practice quiz", "Timed mock test"], horizontal=True)
-        duration_minutes = st.select_slider("Mock-test time limit (minutes)", options=[5, 10, 15, 20, 30, 45, 60], value=15, disabled=mode_label != "Timed mock test")
-        notes_file = st.file_uploader("Optional study file (PDF, TXT, or MD)", type=["pdf", "txt", "md"])
-        source_text = st.text_area("Paste notes, syllabus, or job description (optional)", height=130, placeholder="Questions will focus on this material when provided.")
-        submitted = st.form_submit_button("Generate quiz", type="primary")
+    with st.container(border=True):
+      with st.form("quiz_generation_form"):
+          subject = st.text_input("Subject / topic", placeholder="e.g. Python, SQL, Machine Learning, DBMS", key="quiz_tracker_subject_input")
+          difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
+          count = st.slider("Number of questions", min_value=5, max_value=20, value=10, step=5)
+          mode_label = st.radio("Session type", ["Practice quiz", "Timed mock test"], horizontal=True)
+          duration_minutes = st.select_slider("Mock-test time limit (minutes)", options=[5, 10, 15, 20, 30, 45, 60], value=15, disabled=mode_label != "Timed mock test")
+          notes_file = st.file_uploader("Optional study file (PDF, TXT, or MD)", type=["pdf", "txt", "md"])
+          source_text = st.text_area("Paste notes, syllabus, or job description (optional)", height=130, placeholder="Questions will focus on this material when provided.")
+          submitted = st.form_submit_button("Generate quiz", type="primary")
 
     if submitted:
         api_key = _api_key()

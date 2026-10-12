@@ -236,7 +236,7 @@ def main():
                         icon_label,
                         key=f"v2_sidebar_nav_{target_index}",
                         help=help_text,
-                        type="primary" if target_index == current_index else "secondary",
+                        type="primary",  # Filled buttons keep shortcut icons readable on all Streamlit themes.
                         use_container_width=True,
                         on_click=_navigate,
                         args=(target_index,),

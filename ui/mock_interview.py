@@ -30,6 +30,16 @@ def _jump_mock_question(index: int) -> None:
         st.session_state.mock_interview_current_question = min(max(int(index), 0), len(questions) - 1)
 
 
+def _open_visual_tools_with_prefill() -> None:
+    """Preserve the existing result-card handoff while syncing the V2 router."""
+    st.session_state.prefill_position = st.session_state.get("mock_interview_domain", "")
+    st.session_state.prefill_mock_score = st.session_state.get("mock_interview_score")
+    st.session_state.prefill_improvement = st.session_state.get("mock_interview_difficulty", "")
+    st.session_state.prefill_skills = st.session_state.get("mock_interview_skills", [])
+    st.session_state.active_tab = 5
+    st.session_state.v2_workspace_picker = "🎨 Visual Tools"
+
+
 def render_mock_interview_tab(config):
     """Mock interview tab with interactive Q&A and scoring"""
     st.markdown(_INTERVIEW_CSS, unsafe_allow_html=True)
@@ -153,14 +163,12 @@ def render_mock_interview_tab(config):
             with col1:
                 st.metric("Mock Interview Score", f"{st.session_state.mock_interview_score}%")
             with col2:
-                if st.button("📊 Create Result Card", type="primary", use_container_width=True):
-                    st.session_state.prefill_position = st.session_state.mock_interview_domain
-                    st.session_state.prefill_mock_score = st.session_state.mock_interview_score
-                    st.session_state.prefill_improvement = st.session_state.mock_interview_difficulty
-                    st.session_state.prefill_skills = st.session_state.mock_interview_skills
-                    st.session_state.active_tab = 5
-                    st.success("✅ Switching to Visual Tools with your interview data...")
-                    st.rerun()
+                st.button(
+                    "Create Result Card",
+                    type="primary",
+                    use_container_width=True,
+                    on_click=_open_visual_tools_with_prefill,
+                )
             
             # Show all answers with ideal answers
             with st.expander("📖 Review Your Answers & Ideal Responses"):

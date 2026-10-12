@@ -10,8 +10,11 @@ logger = logging.getLogger(__name__)
 
 def render_chatbot_tab(config):
     """Conversational chatbot tab"""
-    st.header("💬 Professional Interview Assistant")
-    st.markdown("Ask me professional interview questions and get detailed answers.")
+    st.markdown(
+        '<section class="v2-workspace-intro"><div class="v2-page-kicker">THINK IT THROUGH</div>'
+        '<h1>Interview Assistant</h1><p>Ask a question, rehearse an explanation or get unstuck on an interview concept. Conversation history stays in this session.</p></section>',
+        unsafe_allow_html=True,
+    )
     
     # Initialize chatbot session state
     if 'conversation_chat_messages' not in st.session_state:
@@ -35,10 +38,10 @@ def render_chatbot_tab(config):
     .chat-container {
         height: 500px;
         overflow-y: auto;
-        border: 2px solid #c44900;
-        border-radius: 10px;
+        border: 1px solid #E3E7F0;
+        border-radius: 16px;
         padding: 15px;
-        background-color: #04151f;
+        background-color: #FFFFFF;
     }
     .user-message {
         display: flex;
@@ -46,13 +49,15 @@ def render_chatbot_tab(config):
         margin-bottom: 10px;
     }
     .user-message-content {
-        background-color: #c44900;
-        color: #efd6ac;
-        padding: 10px 15px;
-        border-radius: 15px;
-        max-width: 70%;
-        border-bottom-right-radius: 3px;
+        background-color: #3556D8;
+        color: #FFFFFF;
+        padding: 12px 15px;
+        border-radius: 16px;
+        max-width: 82%;
+        border-bottom-right-radius: 4px;
         word-wrap: break-word;
+        line-height: 1.55;
+        box-shadow: 0 4px 12px rgba(53,86,216,.11);
     }
     .bot-message {
         display: flex;
@@ -60,14 +65,15 @@ def render_chatbot_tab(config):
         margin-bottom: 10px;
     }
     .bot-message-content {
-        background-color: #183a37;
-        color: #efd6ac;
-        padding: 10px 15px;
-        border-radius: 15px;
-        max-width: 70%;
-        border-bottom-left-radius: 3px;
+        background-color: #F6F7FB;
+        color: #1B2340;
+        padding: 12px 15px;
+        border-radius: 16px;
+        max-width: 88%;
+        border-bottom-left-radius: 4px;
         word-wrap: break-word;
-        border: 1px solid #c44900;
+        border: 1px solid #E3E7F0;
+        line-height: 1.6;
     }
     </style>
     """, unsafe_allow_html=True)

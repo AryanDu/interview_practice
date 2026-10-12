@@ -208,7 +208,8 @@ class PromptEngineer:
         else:
             format_instruction = f"Return your response in structured {output_format} format."
         
-        user_prompt = f"""Generate {difficulty}-level interview questions for a {domain} position.
+        user_prompt = f"""Mode: study_mode. Generate learning-oriented interview preparation for a {domain} position at {difficulty} difficulty.
+Include clear questions, expected answer points, follow-up questions, a short summary, and practical preparation tips.
 
 {format_instruction}
 

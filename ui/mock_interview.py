@@ -107,7 +107,7 @@ def render_mock_interview_tab(config):
                     st.session_state.prefill_mock_score = st.session_state.mock_interview_score
                     st.session_state.prefill_improvement = st.session_state.mock_interview_difficulty
                     st.session_state.prefill_skills = st.session_state.mock_interview_skills
-                    st.session_state.active_tab = 4
+                    st.session_state.active_tab = 5
                     st.success("✅ Switching to Visual Tools with your interview data...")
                     st.rerun()
             

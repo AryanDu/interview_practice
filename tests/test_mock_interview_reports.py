@@ -46,6 +46,8 @@ def test_pdf_contains_question_and_answers(monkeypatch, tmp_path):
     assert pdf.startswith(b"%PDF-")
     text = "\n".join(page.extract_text() or "" for page in PdfReader(BytesIO(pdf)).pages)
     assert "MOCK INTERVIEW REPORT" in text
+    assert "OVERALL SCORE INDICATOR" in text
+    assert "Questions answered: 1/1" in text
     assert "What is a dictionary?" in text
     assert "A key-value data structure." in text
     assert "A dictionary stores key-value pairs" in text

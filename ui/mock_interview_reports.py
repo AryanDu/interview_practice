@@ -306,7 +306,53 @@ def build_pdf(report: dict[str, Any]) -> bytes:
         ("ALIGN", (0,0), (-1,-1), "CENTER"), ("LEFTPADDING", (0,0), (-1,-1), 10),
         ("RIGHTPADDING", (0,0), (-1,-1), 10),
     ]))
-    story += [score_panel, Spacer(1, 2*mm), _paragraph(f"Report date: {date_text}", subtitle)]
+    story.append(score_panel)
+    story.append(Spacer(1, 2*mm))
+
+    # Deterministic visuals: use only the already-evaluated score and actual answer coverage.
+    story.append(_paragraph("OVERALL SCORE INDICATOR", label))
+    score_segments = max(0, min(20, round(score / 5)))
+    score_bar = Table([[""] * 20], colWidths=[width / 20] * 20, rowHeights=[4*mm])
+    score_bar_style = [
+        ("BACKGROUND", (0, 0), (-1, -1), gray),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]
+    if score_segments:
+        score_bar_style.append(("BACKGROUND", (0, 0), (score_segments - 1, 0), blue))
+    score_bar.setStyle(TableStyle(score_bar_style))
+    story.extend([score_bar, Spacer(1, 2*mm)])
+
+    questions, answers, ideal = report.get("questions", []), report.get("answers", []), report.get("ideal_answers", [])
+    if not isinstance(questions, list):
+        questions = []
+    if not isinstance(answers, list):
+        answers = []
+    if not isinstance(ideal, list):
+        ideal = []
+    answered_count = sum(
+        bool(str(answer or "").strip())
+        for answer in answers[:len(questions)]
+    )
+    total_questions = len(questions)
+    story.append(_paragraph(
+        f"Questions answered: {answered_count}/{total_questions}", label
+    ))
+    answer_segments = round(20 * answered_count / total_questions) if total_questions else 0
+    answer_bar = Table([[""] * 20], colWidths=[width / 20] * 20, rowHeights=[3*mm])
+    answer_bar_style = [
+        ("BACKGROUND", (0, 0), (-1, -1), gray),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]
+    if answer_segments:
+        answer_bar_style.append(("BACKGROUND", (0, 0), (answer_segments - 1, 0), colors.HexColor("#16846B")))
+    answer_bar.setStyle(TableStyle(answer_bar_style))
+    story.extend([answer_bar, Spacer(1, 2*mm), _paragraph(f"Report date: {date_text}", subtitle)])
     story.append(Paragraph("Skills identified", section))
     skills = report.get("skills", [])
     if isinstance(skills, str):
@@ -323,10 +369,6 @@ def build_pdf(report: dict[str, Any]) -> bytes:
         story.append(box)
     else:
         story.append(_paragraph("No skills were returned by the evaluation.", body))
-    questions, answers, ideal = report.get("questions", []), report.get("answers", []), report.get("ideal_answers", [])
-    if not isinstance(questions, list): questions = []
-    if not isinstance(answers, list): answers = []
-    if not isinstance(ideal, list): ideal = []
     story += [Paragraph("Question-wise review", section),
               _paragraph("Compare your submitted response with the model answer from the completed evaluation.", subtitle)]
     if not questions:
@@ -374,7 +416,7 @@ def render_reports_panel(user_id: str) -> None:
         except Exception:
             pass
     if current:
-        st.success("Your report is ready. Preview and download reuse the saved evaluation; no AI call is made.")
+        st.success("Your report is ready. Download and history reuse the saved evaluation; no AI call is made.")
         cols = st.columns(3)
         cols[0].metric("Overall score", f"{int(current.get('score', 0))}/100")
         cols[1].metric("Questions", len(current.get("questions", [])))

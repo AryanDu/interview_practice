@@ -21,7 +21,7 @@ def render_security_testing_tab():
         try:
             from tests.jailbreak_tests import JailbreakTester
 
-            with st.spinner("Running security tests..."):
+            with st.spinner("Checking the guardrails — your existing settings will stay untouched…"):
                 tester = JailbreakTester()
                 st.session_state.security_test_results = tester.run_all_tests()
             st.success("✅ Tests completed!")

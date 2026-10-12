@@ -232,6 +232,14 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 def _go_to_workspace(index: int) -> None:
     """Use the app's existing workspace switcher to open a feature."""
     st.session_state.active_tab = index
+    labels = {
+        -4: "⚙️ Settings", -3: "📄 Reports & History", -2: "🧪 Practice Hub",
+        -1: "🏠 Command Center", 0: "🧠 Quiz Studio & Progress",
+        1: "📚 Interview Prep", 2: "🎤 Mock Interview", 3: "💬 Chat Assistant",
+        4: "📊 Analytics", 5: "🎨 Visual Tools", 6: "🔒 Security Testing",
+    }
+    if index in labels:
+        st.session_state.v2_workspace_picker = labels[index]
 
 
 def _accuracy(topics: list[dict]) -> list[dict]:
@@ -478,7 +486,7 @@ def render_dashboard(user_id: str, user_name: str = "") -> None:
         title="Reports & Reviews",
         descriptor="Return to interview reports and saved evaluations from the existing interview workspace.",
         button_label="Open reports",
-        target_index=2,
+        target_index=-3,
         action_key="reports",
     )
 

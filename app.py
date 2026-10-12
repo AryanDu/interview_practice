@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from ui.sidebar import render_sidebar, initialize_session_state
+from ui.dashboard import render_dashboard
 from ui.interview_prep import render_interview_prep_tab
 from ui.mock_interview import render_mock_interview_tab
 from ui.chatbot import render_chatbot_tab
@@ -32,6 +33,12 @@ def main():
     st.session_state.auth_user_id = user["id"]
     initialize_session_state()
 
+    # New V2 sessions begin at the command center; existing workspace indexes
+    # remain unchanged (0 through 6), so the original page routes stay intact.
+    if not st.session_state.get("_v2_workspace_initialized"):
+        st.session_state.active_tab = -1
+        st.session_state._v2_workspace_initialized = True
+
     # V2 styling is presentation-only; feature modules remain unchanged.
     apply_v2_theme()
 
@@ -56,9 +63,12 @@ def main():
         "🎨 Visual Tools",
         "🔒 Security Testing",
     ]
+    workspace_options = ["🏠 Command Center", *tab_names]
 
-    if "active_tab" not in st.session_state:
-        st.session_state.active_tab = 0
+    active_tab = st.session_state.get("active_tab", -1)
+    if not isinstance(active_tab, int) or active_tab < -1 or active_tab >= len(tab_names):
+        active_tab = -1
+        st.session_state.active_tab = active_tab
 
     st.markdown('<div class="v2-nav-label">JUMP TO A WORKSPACE</div>', unsafe_allow_html=True)
     nav_intro, nav_picker = st.columns([0.34, 0.66], gap="medium")
@@ -73,17 +83,21 @@ def main():
         # real navigation control rather than a decorative, non-functional search.
         selected_section = st.selectbox(
             "Search sections",
-            options=tab_names,
-            index=st.session_state.active_tab,
+            options=workspace_options,
+            index=0 if active_tab == -1 else active_tab + 1,
             placeholder="Type to find a section…",
             label_visibility="collapsed",
         )
-        st.session_state.active_tab = tab_names.index(selected_section)
+
+    st.session_state.active_tab = -1 if selected_section == "🏠 Command Center" else tab_names.index(selected_section)
 
     st.markdown("---")
 
-    # Existing rendering and feature behavior stays the same.
-    if st.session_state.active_tab == 0:
+    # New command center is read-only. Existing feature renderers and session
+    # behavior are preserved without duplicating quiz/interview logic.
+    if st.session_state.active_tab == -1:
+        render_dashboard(user_id=user["id"], user_name=user["name"])
+    elif st.session_state.active_tab == 0:
         render_quiz_tracker_tab(user_id=user["id"])
     elif st.session_state.active_tab == 1:
         render_interview_prep_tab(sidebar_config)

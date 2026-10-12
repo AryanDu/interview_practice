@@ -11,21 +11,31 @@ from utils.html_safety import escape_html_text, safe_filename_component
 logger = logging.getLogger(__name__)
 
 
+def _open_mock_interview() -> None:
+    st.session_state.active_tab = 2
+    st.session_state.v2_workspace_picker = "🎤 Mock Interview"
+
+
 def render_visual_tools_tab():
     """Visual tools tab with shareable result cards"""
-    st.header("🎨 Visual Results & Analytics")
-    st.markdown("Create and share beautiful interview performance cards.")
+    st.markdown(
+        '<section class="v2-workspace-intro"><div class="v2-page-kicker">MAKE PROGRESS VISIBLE</div>'
+        '<h1>Visual Results</h1><p>Create a shareable performance card from your completed mock interview. Your original evaluation remains the source of truth.</p></section>',
+        unsafe_allow_html=True,
+    )
     
     # Check if mock interview has been completed
     if 'mock_interview_score' not in st.session_state or st.session_state.mock_interview_score is None:
-        st.info("📝 **To access Visual Tools, please complete a Mock Interview first!**")
-        st.write("Here's how to get started:")
-        st.write("1. Go to the **Mock Interview** tab")
-        st.write("2. Configure your interview settings (domain, difficulty, etc.)")
-        st.write("3. Complete the mock interview by answering all questions")
-        st.write("4. Your results will automatically populate here!")
-        st.markdown("---")
-        st.write("Once you've completed a mock interview, you'll be able to create and download beautiful result cards to share your achievement! 🎉")
+        with st.container(border=True):
+            st.markdown("### No result card yet — that's the next milestone.")
+            st.write("Complete one mock interview first. Its recorded score and skills will populate this page automatically.")
+            st.button(
+                "Start a mock interview",
+                key="v2_visual_start_interview",
+                type="primary",
+                on_click=_open_mock_interview,
+                use_container_width=True,
+            )
         return
     
     # Initialize result data

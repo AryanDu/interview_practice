@@ -404,10 +404,14 @@ def build_pdf(report: dict[str, Any]) -> bytes:
 
 
 def render_reports_panel(user_id: str) -> None:
-    """Show the current report and user-scoped report history in Streamlit."""
+    """Show current evaluation, searchable report history, and reusable PDFs."""
     import streamlit as st
+
     st.divider()
-    st.subheader("📄 Mock Interview Report Cards")
+    st.markdown(
+        '<div class="v2-page-kicker">SAVED EVALUATIONS</div><h2>Reports & review</h2>',
+        unsafe_allow_html=True,
+    )
     current_id = st.session_state.get("mock_interview_report_id")
     current = st.session_state.get("mock_interview_report_payload")
     if current_id:
@@ -415,48 +419,101 @@ def render_reports_panel(user_id: str) -> None:
             current = get_report(user_id, current_id) or current
         except Exception:
             pass
+
     if current:
-        st.success("Your report is ready. Download and history reuse the saved evaluation; no AI call is made.")
-        cols = st.columns(3)
-        cols[0].metric("Overall score", f"{int(current.get('score', 0))}/100")
-        cols[1].metric("Questions", len(current.get("questions", [])))
-        cols[2].metric("Skills", len(current.get("skills", [])))
-        identifier = str(current.get("report_id") or current_id or "current")
-        try:
-            st.download_button("⬇️ Download PDF Report", data=build_pdf(current),
-                               file_name=f"mock-interview-report-{identifier}.pdf", mime="application/pdf",
-                               key=f"download_current_mock_report_{identifier}", use_container_width=True)
-        except Exception:
-            st.error("PDF creation failed. The evaluation data remains available; try again.")
+        with st.container(border=True):
+            st.success("Your evaluation is ready. The saved score and answers are reused; creating this PDF makes no new AI call.")
+            cols = st.columns(3, gap="medium")
+            cols[0].metric("Overall score", f"{int(current.get('score', 0))}/100")
+            cols[1].metric("Questions", len(current.get("questions", [])))
+            cols[2].metric("Skills", len(current.get("skills", [])))
+            identifier = str(current.get("report_id") or current_id or "current")
+            try:
+                st.download_button(
+                    "Download PDF report",
+                    data=build_pdf(current),
+                    file_name=f"mock-interview-report-{identifier}.pdf",
+                    mime="application/pdf",
+                    key=f"download_current_mock_report_{identifier}",
+                    use_container_width=True,
+                    type="primary",
+                )
+            except Exception:
+                st.error("PDF creation failed. Your evaluation data is still available; try again.")
     else:
-        st.info("Complete a Mock Interview to generate your first downloadable PDF report.")
+        with st.container(border=True):
+            st.markdown("### No report generated yet.")
+            st.write("Complete a mock interview to save an evaluation and unlock a downloadable report.")
 
     try:
         history = list_reports(user_id, limit=20)
     except Exception:
         st.warning("Report history is temporarily unavailable. The current result may still be downloadable.")
         return
+
     if not history:
-        st.caption("Completed reports will appear here for future download.")
+        st.caption("Completed interview reports will appear here. Quiz history stays available in Quiz Studio and Analytics.")
         return
-    st.markdown("**Previous reports**")
-    for record in history:
+
+    scores = [int(record.get("score") or 0) for record in history]
+    st.markdown('<div class="v2-page-kicker">YOUR REPORT LIBRARY</div>', unsafe_allow_html=True)
+    summary = st.columns(3, gap="medium")
+    summary[0].metric("Saved reports", len(history))
+    summary[1].metric("Average score", f"{round(sum(scores) / len(scores))}/100" if scores else "—")
+    summary[2].metric("Best score", f"{max(scores)}/100" if scores else "—")
+
+    query = st.text_input(
+        "Search saved reports",
+        placeholder="Search by role, difficulty or date…",
+        key="mock_report_search",
+    )
+    search = query.strip().casefold()
+    if search:
+        filtered = [
+            record for record in history
+            if search in str(record.get("domain", "")).casefold()
+            or search in str(record.get("difficulty", "")).casefold()
+            or search in str(record.get("created_at", "")).casefold()
+            or search in str(record.get("score", ""))
+        ]
+    else:
+        filtered = history
+
+    if not filtered:
+        st.info("No saved reports match that search. Try a role name, difficulty or date.")
+        return
+
+    st.markdown("**Saved interview evaluations**")
+    for record in filtered:
         record_id = int(record["id"])
         with st.container(border=True):
-            col1, col2 = st.columns([.75, .25])
+            col1, col2 = st.columns([0.72, 0.28], gap="small")
             with col1:
-                st.markdown(f"**{_clip(record.get('domain'), 100)}** · {_clip(record.get('difficulty'), 30)}")
-                st.caption(f"{_clip(record.get('created_at'), 50)} · Score: {int(record.get('score', 0))}/100")
+                st.markdown(f"**{_clip(record.get('domain'), 100)}**")
+                st.caption(
+                    f"{_clip(record.get('difficulty'), 30)} · {_clip(record.get('created_at'), 50)}"
+                    f" · Score: {int(record.get('score', 0))}/100"
+                )
             with col2:
-                if st.button("View / download", key=f"view_mock_report_{record_id}", use_container_width=True):
+                if st.button(
+                    "View / download",
+                    key=f"view_mock_report_{record_id}",
+                    use_container_width=True,
+                ):
                     st.session_state.mock_interview_history_selected_id = record_id
         selected_id = st.session_state.get("mock_interview_history_selected_id")
         if selected_id and int(selected_id) == record_id:
             selected = get_report(user_id, record_id)
             if selected:
                 try:
-                    st.download_button(f"⬇️ Download report #{record_id}", data=build_pdf(selected),
-                                       file_name=f"mock-interview-report-{record_id}.pdf", mime="application/pdf",
-                                       key=f"download_history_mock_report_{record_id}")
+                    st.download_button(
+                        f"Download report #{record_id}",
+                        data=build_pdf(selected),
+                        file_name=f"mock-interview-report-{record_id}.pdf",
+                        mime="application/pdf",
+                        key=f"download_history_mock_report_{record_id}",
+                        use_container_width=True,
+                    )
                 except Exception:
                     st.warning("This saved report could not be rendered as a PDF.")
+

@@ -13,8 +13,11 @@ logger = logging.getLogger(__name__)
 
 def render_interview_prep_tab(config):
     """Interview preparation tab"""
-    st.header("Interview Preparation - Study Mode")
-    st.markdown("Upload your CV or job description for personalized questions.")
+    st.markdown(
+        '<section class="v2-workspace-intro"><div class="v2-page-kicker">PREPARE WITH CONTEXT</div>'
+        '<h1>Interview Prep</h1><p>Build a tailored study pack from a role, CV or job description. The existing generation and validation pipeline is unchanged.</p></section>',
+        unsafe_allow_html=True,
+    )
     cv_file = st.file_uploader("Upload CV (PDF or TXT)", type=["pdf", "txt"], key="interview_prep_cv")
     
     col1, col2 = st.columns([2, 1])
@@ -160,7 +163,7 @@ def render_interview_prep_tab(config):
                     response_text = None
             else:
                 # Generate response using LLM manager
-                with st.spinner("Generating interview questions..."):
+                with st.spinner("Building your personalized study pack…"):
                     response = st.session_state.llm_manager.generate_response(
                         provider=config["provider"],
                         system_prompt=prompts["system"],
@@ -192,7 +195,7 @@ def render_interview_prep_tab(config):
                 
                 # LLM Validation
                 if config["validate_with_llm"] and config["validator_provider"]:
-                    with st.spinner("Validating with second LLM..."):
+                    with st.spinner("Running a second review for consistency…"):
                         try:
                             validation = st.session_state.llm_manager.validate_response(
                                 main_provider=config["provider"],
@@ -226,7 +229,7 @@ def render_interview_prep_tab(config):
                 
                 # Generate image
                 if config["generate_image"] and st.session_state.image_generator:
-                    with st.spinner("Generating motivational image..."):
+                    with st.spinner("Adding a little visual motivation…"):
                         try:
                             image_result = st.session_state.image_generator.generate_motivational_image()
                             if image_result.get("success"):

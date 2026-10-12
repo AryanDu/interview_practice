@@ -148,6 +148,17 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
   font-weight: 650;
   letter-spacing: 0;
 }
+.v2-goal-ring-row { display:flex; align-items:center; gap:1rem; margin:.5rem 0 .7rem; }
+.v2-goal-ring {
+  position:relative; display:grid; place-items:center; flex:0 0 82px; width:82px; height:82px;
+  border-radius:50%; background:conic-gradient(#3556D8 0 var(--goal-pct), #E9ECF7 var(--goal-pct) 100%);
+}
+.v2-goal-ring::before { content:""; position:absolute; inset:7px; border-radius:50%; background:#FFFFFF; }
+.v2-goal-ring span { position:relative; z-index:1; color:#233FAF; font-size:.95rem; font-weight:900; }
+.v2-milestone-strip { display:flex; flex-wrap:wrap; gap:.5rem; margin:.4rem 0 .2rem; }
+.v2-milestone { display:inline-flex; align-items:center; gap:.4rem; padding:.45rem .62rem; border:1px solid #E3E7F0; border-radius:9px; background:#FFFFFF; color:#35416B; font-size:.76rem; font-weight:750; }
+.v2-milestone-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#3556D8; }
+.v2-milestone-next { color:#68718A; font-size:.83rem; margin-top:.75rem; }
 
 .v2-action-heading {
   display: flex;
@@ -400,11 +411,12 @@ def render_dashboard(user_id: str, user_name: str = "") -> None:
         with st.container(border=True):
             st.markdown('<div class="v2-panel-kicker">TODAY\'S FOCUS</div>', unsafe_allow_html=True)
             st.markdown("### Daily practice goal")
+            goal_percent = round(min(1.0, today_count / max(goal, 1)) * 100)
             st.markdown(
-                f'<div class="v2-goal-count">{today_count:,}<span> / {goal:,} questions</span></div>',
+                f'<div class="v2-goal-ring-row"><div class="v2-goal-ring" style="--goal-pct:{goal_percent}%"><span>{goal_percent}%</span></div>'
+                f'<div class="v2-goal-count">{today_count:,}<span> / {goal:,} questions</span></div></div>',
                 unsafe_allow_html=True,
             )
-            st.progress(min(1.0, today_count / max(goal, 1)))
             if today_count >= goal:
                 st.success("Daily goal reached. Nice consistency.")
             elif today_count == 0:
@@ -449,6 +461,43 @@ def render_dashboard(user_id: str, user_name: str = "") -> None:
                 "Topic-level patterns appear here after practice. We won't fill this space with "
                 "sample scores or guessed readiness estimates."
             )
+
+    st.markdown("## Small wins")
+    milestones = []
+    if attempts:
+        milestones.append("First session")
+    if total_questions >= 50:
+        milestones.append("50 questions")
+    if total_questions >= 100:
+        milestones.append("100 questions")
+    if len(attempts) >= 10:
+        milestones.append("10 sessions")
+    if best_streak >= 3:
+        milestones.append("3-day streak")
+    if today_count >= goal:
+        milestones.append("Daily goal reached")
+    with st.container(border=True):
+        if milestones:
+            badges_html = "".join(
+                f'<span class="v2-milestone"><span class="v2-milestone-dot"></span>{escape(label)}</span>'
+                for label in milestones
+            )
+            st.markdown(f'<div class="v2-milestone-strip">{badges_html}</div>', unsafe_allow_html=True)
+        else:
+            st.caption("Your first milestone is one completed quiz. Each small session will build your personal progress map.")
+        if total_questions < 50:
+            milestone_target = 50
+        elif total_questions < 100:
+            milestone_target = 100
+        elif total_questions < 250:
+            milestone_target = 250
+        else:
+            milestone_target = total_questions + 250
+        questions_left = max(0, milestone_target - total_questions)
+        st.markdown(
+            f'<div class="v2-milestone-next">Next question milestone: {questions_left} more to reach {milestone_target} total.</div>',
+            unsafe_allow_html=True,
+        )
 
     st.markdown("## Pick your next move")
     st.caption("Four quick routes into the existing features. No duplicate workflows.")

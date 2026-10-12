@@ -6,6 +6,7 @@ available for local development and automated tests.
 from __future__ import annotations
 
 import csv
+from html import escape
 import io
 import json
 import logging
@@ -860,7 +861,7 @@ def _render_active_quiz(session_id: str) -> None:
         question = quiz[current_index]
         with st.container(border=True):
             st.markdown(f'<div class="v2-question-counter">QUESTION {current_index + 1:02d} / {len(quiz):02d}</div>', unsafe_allow_html=True)
-            st.markdown(f"### {question['question']}")
+            st.markdown(f"### {escape(str(question['question']))}")
             st.caption(f"Topic: {question.get('topic') or st.session_state.get('quiz_tracker_subject', 'General')}")
             st.radio(
                 "Choose one answer",
@@ -929,23 +930,31 @@ def _render_active_quiz(session_id: str) -> None:
         for name, data in topic_stats.items()
     ]
     topic_rows.sort(key=lambda row: (row[3], -row[2]))
-    left, right = st.columns([1.2, 0.8], gap="medium")
-    with left:
-        st.markdown("### Topic breakdown")
-        for name, topic_correct, topic_total, accuracy in topic_rows:
+    focus_col, strength_col = st.columns(2, gap="medium")
+    with focus_col:
+        st.markdown("### Focus next")
+        for name, topic_correct, topic_total, accuracy in topic_rows[:3]:
             st.progress(
                 accuracy / 100,
                 text=f"{name} · {accuracy}% · {topic_correct}/{topic_total} correct",
             )
-    with right:
-        st.markdown("### Result summary")
-        if score >= 80:
-            st.success("Strong round. Review the questions you missed to lock in the details.")
-        elif score >= 50:
-            st.info("Good base. A targeted revision session can improve consistency.")
-        else:
-            st.warning("Treat this as a useful baseline. Review explanations, then retry the same topic.")
-        st.caption(f"{len(topic_rows)} topics covered · {unanswered} questions left unanswered")
+    with strength_col:
+        st.markdown("### Current strengths")
+        for name, topic_correct, topic_total, accuracy in sorted(topic_rows, key=lambda row: (-row[3], -row[2]))[:3]:
+            st.progress(
+                accuracy / 100,
+                text=f"{name} · {accuracy}% · {topic_correct}/{topic_total} correct",
+            )
+    if score >= 80:
+        st.success("Strong round. Review any missed answers to lock in the details.")
+    elif score >= 50:
+        st.info("Good base. A targeted revision session can improve consistency.")
+    else:
+        st.warning("Treat this as a useful baseline. Review explanations, then retry the topic.")
+    st.caption(f"{len(topic_rows)} topics covered · {unanswered} questions left unanswered")
+    with st.expander("Full topic breakdown", expanded=False):
+        for name, topic_correct, topic_total, accuracy in topic_rows:
+            st.write(f"**{name}** — {accuracy}% · {topic_correct}/{topic_total} correct")
 
     st.markdown("### Question review")
     st.caption("Open a question to compare your answer with the correct answer and explanation.")
@@ -955,7 +964,7 @@ def _render_active_quiz(session_id: str) -> None:
         state_label = "Correct" if is_correct else ("Unanswered" if selected is None else "Review")
         icon = "✓" if is_correct else ("○" if selected is None else "!")
         with st.expander(f"{icon}  Q{index + 1} · {question.get('topic') or 'General'} · {state_label}"):
-            st.markdown(f"**{question['question']}**")
+            st.markdown(f"**{escape(str(question['question']))}**")
             if selected is None:
                 st.write("Your answer: Not answered")
             elif isinstance(selected, int) and 0 <= selected < len(question["options"]):

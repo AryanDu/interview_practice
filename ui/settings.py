@@ -1,6 +1,8 @@
 """Organized settings hub. Reuses existing user-scoped study-goal persistence."""
 from __future__ import annotations
 
+from html import escape
+
 import streamlit as st
 
 from ui.quiz_tracker import DEFAULT_DAILY_GOAL, _db, _get_daily_goal, _save_daily_goal
@@ -116,7 +118,7 @@ def render_settings(user: dict) -> None:
             st.markdown('<div class="v2-settings-section">PROFILE</div>', unsafe_allow_html=True)
             name = str(user.get("name") or "Learner")
             email = str(user.get("email") or "Not available")
-            st.markdown(f'<div class="v2-settings-value">{name}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="v2-settings-value">{escape(name)}</div>', unsafe_allow_html=True)
             st.caption("Signed-in profile")
             st.write(email)
             st.caption("Account identity comes from the existing Google sign-in.")

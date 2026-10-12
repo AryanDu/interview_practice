@@ -73,7 +73,7 @@ def test_answers_from_widgets_keeps_answers_for_unrendered_questions(monkeypatch
     )
     # Only question 1 is currently rendered; answers for questions 0 and 2
     # must survive when Streamlit has removed their radio widgets.
-    fake_state[quiz_tracker._answer_widget_key(session_id, 1)] = 3
+    fake_state[f"quiz_answer_{session_id}_{token}_1"] = 3
     monkeypatch.setattr(quiz_tracker.st, "session_state", fake_state)
 
     answers = quiz_tracker._answers_from_widgets(session_id, [{}, {}, {}, {}])
@@ -89,7 +89,7 @@ def test_radio_change_persists_answer_in_durable_state(monkeypatch):
         quiz_tracker_attempt_token=token,
         quiz_tracker_answers={0: 1},
     )
-    fake_state[quiz_tracker._answer_widget_key(session_id, 2)] = 3
+    fake_state[f"quiz_answer_{session_id}_{token}_2"] = 3
     monkeypatch.setattr(quiz_tracker.st, "session_state", fake_state)
 
     quiz_tracker._persist_answer_from_widget(session_id, 2)

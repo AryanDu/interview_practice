@@ -363,6 +363,26 @@ div[role="radiogroup"] label,
     padding-right: 0.85rem;
   }
 
+  /* Stack content columns on phones, while keeping the numbered exam navigator compact. */
+  [data-testid="stMain"] [data-testid="stHorizontalBlock"] {
+    flex-wrap: wrap !important;
+    gap: .6rem !important;
+  }
+  [data-testid="stMain"] [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .st-key-v2-quiz-navigator [data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    gap: .3rem !important;
+  }
+  .st-key-v2-quiz-navigator [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
   .v2-brandbar {
     gap: 0.65rem;
     padding-bottom: 0.85rem;

@@ -835,26 +835,27 @@ def _render_active_quiz(session_id: str) -> None:
     if not submitted:
         st.markdown("### Question navigator")
         st.caption("Select any number to move between questions. Your choices are kept as you navigate.")
-        for row_start in range(0, len(quiz), 5):
-            indices = list(range(row_start, min(row_start + 5, len(quiz))))
-            nav_cols = st.columns(len(indices), gap="small")
-            for col, question_index in zip(nav_cols, indices):
-                selected = question_index in current_answers
-                number = question_index + 1
-                prefix = "✓ " if selected else ""
-                with col:
-                    st.button(
-                        f"{prefix}{number}",
-                        key=f"quiz_nav_{token}_{question_index}",
-                        type="primary" if question_index == current_index else "secondary",
-                        use_container_width=True,
-                        on_click=_jump_to_question,
-                        args=(question_index,),
-                        help=(
-                            f"Question {number} — answered"
-                            if selected else f"Question {number} — not answered"
-                        ),
-                    )
+        with st.container(key="v2-quiz-navigator"):
+            for row_start in range(0, len(quiz), 5):
+                indices = list(range(row_start, min(row_start + 5, len(quiz))))
+                nav_cols = st.columns(len(indices), gap="small")
+                for col, question_index in zip(nav_cols, indices):
+                    selected = question_index in current_answers
+                    number = question_index + 1
+                    prefix = "✓ " if selected else ""
+                    with col:
+                        st.button(
+                            f"{prefix}{number}",
+                            key=f"quiz_nav_{token}_{question_index}",
+                            type="primary" if question_index == current_index else "secondary",
+                            use_container_width=True,
+                            on_click=_jump_to_question,
+                            args=(question_index,),
+                            help=(
+                                f"Question {number} — answered"
+                                if selected else f"Question {number} — not answered"
+                            ),
+                        )
 
         answered_count = len(current_answers)
         st.progress(answered_count / max(1, len(quiz)), text=f"{answered_count} of {len(quiz)} answered")

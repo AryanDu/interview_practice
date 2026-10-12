@@ -4,6 +4,16 @@ A comprehensive AI-powered interview preparation platform built with Streamlit. 
 
 ## 🚀 Features
 
+### Quiz & Progress Tracker (added in `quiz-progress-tracker` branch)
+- Generate 5–20 multiple-choice questions from a topic, pasted notes, or TXT/Markdown study material.
+- Submit answers and review correct answers with explanations.
+- Group performance by the AI-generated topic labels to highlight strengths and areas needing practice.
+- Save attempts to SQLite and download a CSV history.
+- Uses the Gemini Developer API free tier when available; no paid plan is required, but provider quotas apply.
+- Configure `GEMINI_API_KEY` in Streamlit Community Cloud → App settings → Secrets, or as a local environment variable.
+- **Storage note:** SQLite is suitable for local use. Free cloud app filesystems may reset, so download your CSV history if you need a backup.
+
+
 ### Core Features
 - ✅ **Multiple LLM Support**: OpenAI, Gemini, Claude, and Ollama (local models)
 - ✅ **5+ Prompt Engineering Techniques**: Few-shot, Chain-of-Thought, Zero-shot, and more

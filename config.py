@@ -20,7 +20,7 @@ class Config:
     
     # Model defaults
     DEFAULT_OPENAI_MODEL = "gpt-4o-mini"  # Change to gpt-4o, gpt-4.1, etc. as needed
-    DEFAULT_GEMINI_MODEL = "gemini-1.5-pro"  # Using gemini-1.5-pro for v1beta compatibility
+    DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"  # Current lightweight Gemini model default
     DEFAULT_CLAUDE_MODEL = "claude-3-5-sonnet-20241022"
     DEFAULT_GROK_MODEL = "grok-2"
     DEFAULT_OLLAMA_MODEL = "phi3"  # Default Ollama model - lightweight and efficient
@@ -67,6 +67,6 @@ class Config:
             "gemini": cls.GOOGLE_API_KEY is not None,
             "claude": cls.ANTHROPIC_API_KEY is not None,
             "grok": cls.GROK_API_KEY is not None,
-            "ollama": cls.OLLAMA_BASE_URL is not None,
+            "ollama": bool(os.getenv("OLLAMA_BASE_URL")),
         }
         return keys_status

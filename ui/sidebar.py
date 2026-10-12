@@ -18,17 +18,17 @@ def render_sidebar():
             status_icon = "✅" if status else "❌"
             st.write(f"{status_icon} {provider.capitalize()}")
         
-        if not any(keys_status.values()):
-            st.error("⚠️ Please configure at least one API key in .env file")
-            st.stop()
-        
-        # LLM Provider selection
+        # Allow the quiz tracker to open even before an LLM provider is configured.
         available_providers = [k for k, v in keys_status.items() if v]
-        selected_provider = st.selectbox(
-            "Select LLM Provider",
-            options=available_providers,
-            index=0 if available_providers else None
-        )
+        if available_providers:
+            selected_provider = st.selectbox(
+                "Select LLM Provider",
+                options=available_providers,
+                index=0
+            )
+        else:
+            st.warning("No LLM provider configured. Quiz tracking opens, but AI generation needs a Gemini API key.")
+            selected_provider = "gemini"
         
         # Show Ollama status and instructions
         if selected_provider == "ollama":
@@ -46,7 +46,7 @@ def render_sidebar():
         # Model selection
         models = {
             "openai": Config.OPENAI_MODELS,
-            "gemini": ["gemini-1.5-pro", "gemini-pro"],
+            "gemini": ["gemini-2.5-flash", "gemini-2.0-flash"],
             "claude": ["claude-3-5-sonnet-20241022"],
             "grok": ["grok-2", "grok-vision-beta"],
             "ollama": []  # Will be populated dynamically

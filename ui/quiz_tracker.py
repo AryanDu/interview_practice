@@ -621,6 +621,7 @@ def _set_quiz_state(questions: list[dict], subject: str, difficulty: str, mode: 
     st.session_state.quiz_tracker_auto_submitted = False
     st.session_state.quiz_tracker_last_result = None
     st.session_state.quiz_tracker_current_question_index = 0
+    st.session_state.pop("quiz_tracker_focus", None)
 
 
 def _answer_widget_key(session_id: str, index: int) -> str:

@@ -14,6 +14,7 @@ from ui.analytics import render_analytics_tab
 from ui.security import render_security_testing_tab
 from ui.visual_tools import render_visual_tools_tab
 from ui.quiz_tracker import render_quiz_tracker_tab
+from ui.auth import require_authenticated_user
 
 # Set up the page
 st.set_page_config(
@@ -23,8 +24,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS styling
-st.markdown("""
+_APP_CSS = """
 <style>
     :root {
         --primary-color: #c44900;
@@ -57,13 +57,18 @@ st.markdown("""
         border-bottom: 2px solid var(--primary-color);
     }
 </style>
-""", unsafe_allow_html=True)
-
-# Initialize session state
-initialize_session_state()
+"""
 
 def main():
-    """Main orchestrator function"""
+    """Main orchestrator function, protected by Google OIDC login."""
+    user = require_authenticated_user()
+    st.session_state.auth_user_id = user["id"]
+    initialize_session_state()
+    st.markdown(_APP_CSS, unsafe_allow_html=True)
+    with st.sidebar:
+        st.write(f"Signed in as **{user['name']}**")
+        st.caption(user["email"])
+        st.button("Sign out", on_click=st.logout, use_container_width=True)
     st.markdown('<h1 class="main-header">💼 Interview Practice App</h1>', unsafe_allow_html=True)
     
     # Render sidebar and get configuration
@@ -95,7 +100,7 @@ def main():
     
     # Render selected tab based on active_tab
     if st.session_state.active_tab == 0:
-        render_quiz_tracker_tab()
+        render_quiz_tracker_tab(user_id=user["id"])
     elif st.session_state.active_tab == 1:
         render_interview_prep_tab(sidebar_config)
     elif st.session_state.active_tab == 2:

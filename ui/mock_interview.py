@@ -241,7 +241,7 @@ IMPORTANT: Generate exactly {num_questions} interview questions. Format each que
 Return ONLY the questions, nothing else."""
         
         # Generate response
-        with st.spinner(f"Generating {num_questions} interview questions..."):
+        with st.spinner("Shaping your interview questions — this may take a moment…"):
             response = st.session_state.llm_manager.generate_response(
                 provider=config["provider"],
                 system_prompt=prompts["system"],
@@ -342,7 +342,7 @@ def _evaluate_mock_interview(config):
         st.error("No interview questions found to evaluate.")
         return
 
-    with st.spinner("Evaluating your answers and preparing feedback..."):
+    with st.spinner("Reviewing your answers and building constructive feedback…"):
         try:
             qa_text = "\n\n".join(
                 f"Q{i + 1}: {question}\nCandidate answer: {answer or '[No answer provided]'}"

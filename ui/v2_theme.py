@@ -265,6 +265,38 @@ header[data-testid="stHeader"] {
   margin-top: 0.1rem;
 }
 
+.v2-top-streak {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  min-height:2.5rem;
+  padding:.25rem .45rem;
+  border:1px solid #F0E2A1;
+  border-radius:12px;
+  background:#FFF8D6;
+  color:#233FAF;
+}
+.v2-top-streak strong { font-size:.92rem; line-height:1.05; }
+.v2-top-streak small { color:#68718A; font-size:.58rem; line-height:1.1; white-space:nowrap; }
+[data-testid="stPopover"] > button {
+  border-radius:11px !important;
+  border:1px solid #E3E7F0 !important;
+  background:#FFFFFF !important;
+  color:#1B2340 !important;
+}
+[data-testid="stPopoverBody"] {
+  border-radius:16px !important;
+}
+div[role="radiogroup"] label,
+[data-testid="stCheckbox"] label {
+  border-radius:10px;
+}
+@media (max-width: 760px) {
+  .v2-top-streak { min-height:2.25rem; padding:.2rem .35rem; }
+  [data-testid="stPopover"] > button { padding-left:.35rem!important; padding-right:.35rem!important; }
+}
+
 @media (max-width: 760px) {
   [data-testid="stMainBlockContainer"] {
     padding-top: 0.8rem;

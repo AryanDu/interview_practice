@@ -217,17 +217,18 @@ def render_visual_tools_tab():
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("📥 Download as PNG", use_container_width=True):
-                st.download_button(
-                    label="⬇️ Click to Download",
-                    data=st.session_state.result_card_image,
-                    file_name=f"interview_result_{result['name'].replace(' ', '_')}.png",
-                    mime="image/png",
-                    use_container_width=True
-                )
+            st.download_button(
+                label="📥 Download as PNG",
+                data=st.session_state.result_card_image.getvalue(),
+                file_name=f"interview_result_{result['name'].replace(' ', '_')}.png",
+                mime="image/png",
+                use_container_width=True,
+                key="download_interview_result_card",
+            )
         with col2:
             if st.button("📊 View Analytics", use_container_width=True):
-                st.info("📊 Analytics coming soon!")
+                st.session_state.active_tab = 4
+                st.rerun()
         with col3:
             if st.button("🔄 Create Another", use_container_width=True):
                 st.session_state.interview_results = None

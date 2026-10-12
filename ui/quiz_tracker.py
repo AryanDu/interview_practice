@@ -1,7 +1,7 @@
-"""AI quiz generation, timed mock tests, and progress tracking.
+"""AI quizzes, timed mock tests, and user-isolated progress tracking.
 
-The current implementation uses SQLite. A future storage decision can replace the
-repository-local database adapter without changing the quiz UI.
+Production uses pooled PostgreSQL when DATABASE_URL is configured. SQLite remains
+available for local development and automated tests.
 """
 from __future__ import annotations
 
@@ -37,8 +37,8 @@ TRANSIENT_STATUS_CODES = {408, 429, 500, 502, 503, 504}
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_SOURCE_CHARS = 18000
 DEFAULT_DAILY_GOAL = 20
-# This is a personal, single-user app for now. Persistent storage/access control
-# will be finalized separately; on a public URL, visitors can otherwise share it.
+# This identifier is only a local-development fallback. Deployed users are keyed
+# by the pseudonymous identifier returned from ui.auth.require_authenticated_user().
 DEFAULT_PROFILE_ID = os.getenv("QUIZ_PROFILE_ID", "local-profile").strip() or "local-profile"
 _PG_POOL: ConnectionPool | None = None
 _PG_POOL_URL = ""
@@ -151,7 +151,7 @@ def _database_url() -> str:
 
 
 def _pool_for(database_url: str) -> ConnectionPool:
-    global _PG_POOL, _PG_POOL_URL
+    global _PG_POOL, _PG_POOL_URL, _PG_SCHEMA_READY
     with _PG_POOL_LOCK:
         if _PG_POOL is None or _PG_POOL_URL != database_url:
             if _PG_POOL is not None:
@@ -168,6 +168,7 @@ def _pool_for(database_url: str) -> ConnectionPool:
                 open=True,
             )
             _PG_POOL_URL = database_url
+            _PG_SCHEMA_READY = False
         return _PG_POOL
 
 

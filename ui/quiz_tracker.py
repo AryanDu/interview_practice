@@ -261,7 +261,13 @@ def render_quiz_tracker_tab():
 
     if "quiz_tracker_session_id" not in st.session_state:
         st.session_state.quiz_tracker_session_id = str(uuid.uuid4())
-    session_id = st.session_state.quiz_tracker_session_id
+    profile_code = st.text_input(
+        "Progress ID (save this code to resume your history)",
+        value=st.session_state.quiz_tracker_session_id,
+        help="Keep this random code private and reuse it on your next visit. It is a profile identifier, not a secure login."
+    ).strip()
+    session_id = profile_code or st.session_state.quiz_tracker_session_id
+    st.caption("On free cloud hosting, local database files may reset. Download your CSV history regularly as a backup.")
 
     with st.expander("How to enable free AI quiz generation", expanded=not bool(_api_key())):
         st.markdown(

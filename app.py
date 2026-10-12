@@ -147,7 +147,7 @@ def main():
         pass
 
     current_index = st.session_state.get("active_tab", -1)
-    current_label = _WORKSPACE_LABELS.get(current_index, "🏠 Command Center")
+    current_label = st.session_state.get("v2_workspace_picker") or _WORKSPACE_LABELS.get(current_index, "🏠 Command Center")
     with st.container():
         bar_title, bar_search, bar_streak, bar_profile = st.columns([1.15, 2.25, 0.72, 0.9], gap="small")
         with bar_title:

@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from ui.sidebar import render_sidebar, initialize_session_state
 from ui.dashboard import render_dashboard
 from ui.practice_hub import render_practice_hub
-from ui.settings import render_settings
+from ui.settings import render_settings, load_user_preferences, apply_user_preferences
 from ui.reports import render_reports
 from ui.interview_prep import render_interview_prep_tab
 from ui.mock_interview import render_mock_interview_tab
@@ -123,6 +123,7 @@ def main():
     user = require_authenticated_user()
     st.session_state.auth_user_id = user["id"]
     initialize_session_state()
+    load_user_preferences(user["id"])
 
     # A new session opens on the command center (unless the user selected another
     # landing point in Settings during this session). Existing feature indexes 0–6
@@ -133,6 +134,7 @@ def main():
         st.session_state._v2_workspace_initialized = True
 
     apply_v2_theme()
+    apply_user_preferences()
     render_brand_bar()
 
     # Real study streak for the compact productivity bar. Failure to read it must
@@ -198,6 +200,33 @@ def main():
                     )
         else:
             st.caption("No matches yet. Try a workspace name or a topic from your saved quiz history.")
+
+    # Compact icon-like workspace shortcuts sit above the collapsible AI settings.
+    # The native Streamlit sidebar remains collapsible; shortcuts are real navigation.
+    with st.sidebar:
+        st.markdown('<div class="v2-sidebar-nav-title">WORKSPACES</div>', unsafe_allow_html=True)
+        shortcuts = [
+            ("⌂", -1, "Command Center"),
+            ("▦", -2, "Practice Hub"),
+            ("Q", 0, "Quiz Studio"),
+            ("🎤", 2, "Mock Interview"),
+            ("▤", -3, "Reports"),
+            ("⚙", -4, "Settings"),
+        ]
+        for row_start in range(0, len(shortcuts), 3):
+            shortcut_row = shortcuts[row_start:row_start + 3]
+            shortcut_cols = st.columns(3, gap="small")
+            for col, (icon_label, target_index, help_text) in zip(shortcut_cols, shortcut_row):
+                with col:
+                    st.button(
+                        icon_label,
+                        key=f"v2_sidebar_nav_{target_index}",
+                        help=help_text,
+                        use_container_width=True,
+                        on_click=_navigate,
+                        args=(target_index,),
+                    )
+        st.divider()
 
     # Render the existing model / prompt controls. Their values are passed through
     # unchanged to the original Interview Prep, Mock Interview, and Chat screens.

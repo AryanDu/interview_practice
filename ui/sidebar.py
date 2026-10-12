@@ -93,24 +93,24 @@ def render_sidebar():
             st.divider()
         
             # Advanced features
-            with st.expander("🔬 Advanced Features"):
-                use_rag = st.checkbox("Use RAG (Job Description Context)", value=False)
-                validate_with_llm = st.checkbox("Validate with Second LLM", value=False)
-                validator_provider = None
-                if validate_with_llm:
-                    other_providers = [p for p in available_providers if p != selected_provider]
-                    if other_providers:
-                        validator_provider = st.selectbox(
-                            "Validator LLM",
-                            options=other_providers,
-                            index=0
-                        )
-                    else:
-                        st.warning("No other providers available for validation")
-                check_duplicates = st.checkbox("Check for Duplicates (Vector DB)", value=False)
-                generate_image = st.checkbox("Generate Motivational Image", value=False)
-                use_langchain = st.checkbox("Use LangChain Chains", value=False)
-    
+            st.markdown("**Advanced features**")
+            use_rag = st.checkbox("Use RAG (Job Description Context)", value=False)
+            validate_with_llm = st.checkbox("Validate with Second LLM", value=False)
+            validator_provider = None
+            if validate_with_llm:
+                other_providers = [p for p in available_providers if p != selected_provider]
+                if other_providers:
+                    validator_provider = st.selectbox(
+                        "Validator LLM",
+                        options=other_providers,
+                        index=0
+                    )
+                else:
+                    st.warning("No other providers available for validation")
+            check_duplicates = st.checkbox("Check for Duplicates (Vector DB)", value=False)
+            generate_image = st.checkbox("Generate Motivational Image", value=False)
+            use_langchain = st.checkbox("Use LangChain Chains", value=False)
+
     return {
         "provider": selected_provider,
         "model": selected_model,

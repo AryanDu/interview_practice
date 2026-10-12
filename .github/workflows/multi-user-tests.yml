@@ -1,0 +1,38 @@
+name: Multi-user tracker checks
+
+on:
+  pull_request:
+    paths:
+      - "app.py"
+      - "ui/auth.py"
+      - "ui/quiz_tracker.py"
+      - "tests/test_quiz_tracker_multiuser.py"
+      - "requirements.txt"
+      - ".github/workflows/multi-user-tests.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "app.py"
+      - "ui/auth.py"
+      - "ui/quiz_tracker.py"
+      - "tests/test_quiz_tracker_multiuser.py"
+      - "requirements.txt"
+      - ".github/workflows/multi-user-tests.yml"
+
+jobs:
+  test-tracker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install tracker test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "streamlit>=1.42.0" pandas requests pypdf streamlit-autorefresh "psycopg[binary,pool]>=3.2.3" pytest
+      - name: Compile application and tests
+        run: python -m compileall -q app.py ui tests/test_quiz_tracker_multiuser.py
+      - name: Run multi-user tracker tests
+        run: python -m pytest -q tests/test_quiz_tracker_multiuser.py

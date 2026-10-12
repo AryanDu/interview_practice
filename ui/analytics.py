@@ -8,6 +8,20 @@ def render_analytics_tab():
     """Analytics and statistics tab"""
     st.header("📊 Analytics & Statistics")
     
+    # Current mock interview result, when available in this signed-in session.
+    if st.session_state.get("mock_interview_score") is not None:
+        st.subheader("🎤 Latest Mock Interview")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Interview Score", f"{st.session_state.mock_interview_score}%")
+        with col2:
+            st.metric("Domain", st.session_state.get("mock_interview_domain", "Not recorded"))
+        with col3:
+            st.metric("Difficulty", st.session_state.get("mock_interview_difficulty", "Not recorded"))
+        skills = st.session_state.get("mock_interview_skills", [])
+        if skills:
+            st.caption("Skills assessed: " + ", ".join(skills))
+
     # Security statistics
     if st.session_state.security_guard:
         st.subheader("🔒 Security Statistics")

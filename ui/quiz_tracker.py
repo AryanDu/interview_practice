@@ -661,7 +661,7 @@ def _finish_current_quiz(session_id: str, answers: dict[int, int], auto_submit: 
 
 
 def _generate_and_start(api_key: str, subject: str, difficulty: str, count: int, source_text: str, mode: str, duration_minutes: int) -> None:
-    with st.spinner("Generating your quiz... automatic retry/fallback is enabled."):
+    with st.spinner("One moment — building your quiz. Automatic retries are enabled if the model is busy."):
         quiz, model_used = _generate_quiz(api_key, DEFAULT_MODEL, subject, difficulty, count, source_text)
     _set_quiz_state(quiz, subject, difficulty, mode, duration_minutes, model_used)
     st.success(f"Generated {len(quiz)} questions using {model_used}.")

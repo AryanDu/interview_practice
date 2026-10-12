@@ -126,7 +126,7 @@ Provide detailed, professional, and helpful answers to their questions."""
                 user_prompt = f"{user_input}\n\nPlease provide a thoughtful and professional answer."
                 
                 try:
-                    with st.spinner("💭 Thinking..."):
+                    with st.spinner("Thinking it through…"):
                         response = st.session_state.llm_manager.generate_response(
                             provider=config["provider"],
                             system_prompt=system_prompt,

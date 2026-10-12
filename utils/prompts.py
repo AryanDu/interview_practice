@@ -25,7 +25,7 @@ class PromptEngineer:
         realistic interview questions and feedback."""
 
         # Jinja2 template rendering
-        env = Environment(loader=FileSystemLoader('templates/prompts'))
+        env = Environment(loader=FileSystemLoader('templates/prompts'))  # nosec B701 -- templates are plain-text LLM prompts, not HTML output
         template = env.get_template('interview_question.jinja2')
         try:
             user_prompt = template.render(
@@ -53,7 +53,7 @@ class PromptEngineer:
     ) -> Dict[str, str]:
         """Few-shot prompting - with examples"""
         system_prompt = f"You are an expert interview coach specializing in {domain} interviews."
-        env = Environment(loader=FileSystemLoader('templates/prompts'))
+        env = Environment(loader=FileSystemLoader('templates/prompts'))  # nosec B701 -- templates are plain-text LLM prompts, not HTML output
         template = env.get_template('interview_question.jinja2')
         try:
             user_prompt = template.render(
@@ -80,7 +80,7 @@ class PromptEngineer:
     ) -> Dict[str, str]:
         """Chain-of-Thought prompting - step-by-step reasoning"""
         system_prompt = f"You are an expert interview coach specializing in {domain} interviews."
-        env = Environment(loader=FileSystemLoader('templates/prompts'))
+        env = Environment(loader=FileSystemLoader('templates/prompts'))  # nosec B701 -- templates are plain-text LLM prompts, not HTML output
         template = env.get_template('interview_question.jinja2')
         try:
             user_prompt = template.render(
@@ -108,7 +108,7 @@ class PromptEngineer:
         """Role-playing prompt - AI acts as interviewer"""
         system_prompt = f"You are acting as a {persona} interviewer for a {domain} position."
         try:
-            env = Environment(loader=FileSystemLoader('templates/prompts'))
+            env = Environment(loader=FileSystemLoader('templates/prompts'))  # nosec B701 -- templates are plain-text LLM prompts, not HTML output
             template = env.get_template('interview_question.jinja2')
             user_prompt = template.render(
                 domain=domain,
@@ -135,7 +135,7 @@ class PromptEngineer:
         """Tree of Thoughts prompting - explore multiple angles"""
         system_prompt = f"You are an expert interview coach specializing in {domain} interviews."
         try:
-            env = Environment(loader=FileSystemLoader('templates/prompts'))
+            env = Environment(loader=FileSystemLoader('templates/prompts'))  # nosec B701 -- templates are plain-text LLM prompts, not HTML output
             template = env.get_template('interview_question.jinja2')
             user_prompt = template.render(
                 domain=domain,
@@ -162,7 +162,7 @@ class PromptEngineer:
         """Self-consistency prompting - generate multiple versions and synthesize"""
         system_prompt = f"You are an expert interview coach specializing in {domain} interviews."
         try:
-            env = Environment(loader=FileSystemLoader('templates/prompts'))
+            env = Environment(loader=FileSystemLoader('templates/prompts'))  # nosec B701 -- templates are plain-text LLM prompts, not HTML output
             template = env.get_template('interview_question.jinja2')
             user_prompt = template.render(
                 domain=domain,
@@ -233,7 +233,7 @@ Include 5-7 questions with detailed expected answers and follow-up questions."""
         """Optimized for detailed, in-depth responses"""
         system_prompt = f"You are an expert interview coach specializing in {domain} interviews."
         try:
-            env = Environment(loader=FileSystemLoader('templates/prompts'))
+            env = Environment(loader=FileSystemLoader('templates/prompts'))  # nosec B701 -- templates are plain-text LLM prompts, not HTML output
             template = env.get_template('interview_question.jinja2')
             user_prompt = template.render(
                 domain=domain,
@@ -259,7 +259,7 @@ Include 5-7 questions with detailed expected answers and follow-up questions."""
         """Optimized for concise responses"""
         system_prompt = f"You are an expert interview coach specializing in {domain} interviews."
         try:
-            env = Environment(loader=FileSystemLoader('templates/prompts'))
+            env = Environment(loader=FileSystemLoader('templates/prompts'))  # nosec B701 -- templates are plain-text LLM prompts, not HTML output
             template = env.get_template('interview_question.jinja2')
             user_prompt = template.render(
                 domain=domain,
@@ -281,7 +281,7 @@ Include 5-7 questions with detailed expected answers and follow-up questions."""
         """Generate interviewer evaluation guidelines"""
         system_prompt = """You are an expert in interview evaluation and assessment. Create structured evaluation criteria for interviews."""
         
-        env = Environment(loader=FileSystemLoader('templates/prompts'))
+        env = Environment(loader=FileSystemLoader('templates/prompts'))  # nosec B701 -- templates are plain-text LLM prompts, not HTML output
         template = env.get_template('interview_guidelines.jinja2')
         try:
             user_prompt = template.render(domain=domain)

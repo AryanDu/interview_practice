@@ -37,7 +37,7 @@ class VectorDatabase:
         """Add interview preparation content to vector database"""
         # Create document ID
         import hashlib
-        doc_id = hashlib.md5(f"{domain}_{difficulty}_{content[:100]}".encode()).hexdigest()
+        doc_id = hashlib.sha256(f"{domain}_{difficulty}_{content}".encode()).hexdigest()
         
         # Prepare metadata
         doc_metadata = {

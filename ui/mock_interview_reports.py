@@ -155,21 +155,30 @@ def save_report(user_id: str, report_token: str, payload: dict[str, Any]) -> int
     difficulty = _clip(payload.get("difficulty"), 30) or "Not specified"
     score = min(100, max(0, int(payload.get("score", 0))))
     serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    values = (user_id, report_token, created_at, domain, difficulty, score, serialized)
     with _connection() as (conn, postgres):
-        ph = "%s" if postgres else "?"
-        conn.execute(
-            f"""INSERT INTO mock_interview_reports
-            (user_id, report_token, created_at, domain, difficulty, score, payload_json)
-            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
-            ON CONFLICT(user_id, report_token) DO UPDATE SET
-            created_at=excluded.created_at, domain=excluded.domain, difficulty=excluded.difficulty,
-            score=excluded.score, payload_json=excluded.payload_json""",
-            (user_id, report_token, created_at, domain, difficulty, score, serialized),
-        )
-        row = conn.execute(
-            f"SELECT id FROM mock_interview_reports WHERE user_id={ph} AND report_token={ph}",
-            (user_id, report_token),
-        ).fetchone()
+        if postgres:
+            conn.execute("""INSERT INTO mock_interview_reports
+                (user_id, report_token, created_at, domain, difficulty, score, payload_json)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT(user_id, report_token) DO UPDATE SET
+                created_at=excluded.created_at, domain=excluded.domain, difficulty=excluded.difficulty,
+                score=excluded.score, payload_json=excluded.payload_json""", values)
+            row = conn.execute(
+                "SELECT id FROM mock_interview_reports WHERE user_id=%s AND report_token=%s",
+                (user_id, report_token),
+            ).fetchone()
+        else:
+            conn.execute("""INSERT INTO mock_interview_reports
+                (user_id, report_token, created_at, domain, difficulty, score, payload_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, report_token) DO UPDATE SET
+                created_at=excluded.created_at, domain=excluded.domain, difficulty=excluded.difficulty,
+                score=excluded.score, payload_json=excluded.payload_json""", values)
+            row = conn.execute(
+                "SELECT id FROM mock_interview_reports WHERE user_id=? AND report_token=?",
+                (user_id, report_token),
+            ).fetchone()
         if row is None:
             raise RuntimeError("The report could not be saved.")
         return int(row["id"] if isinstance(row, dict) else row[0])
@@ -178,12 +187,18 @@ def save_report(user_id: str, report_token: str, payload: dict[str, Any]) -> int
 def list_reports(user_id: str, limit: int = 20) -> list[dict[str, Any]]:
     user_id, limit = _clip(user_id, 128), min(MAX_HISTORY_ITEMS, max(1, int(limit)))
     with _connection() as (conn, postgres):
-        ph = "%s" if postgres else "?"
-        rows = conn.execute(
-            f"""SELECT id, created_at, domain, difficulty, score FROM mock_interview_reports
-            WHERE user_id={ph} ORDER BY created_at DESC, id DESC LIMIT {ph}""",
-            (user_id, limit),
-        ).fetchall()
+        if postgres:
+            rows = conn.execute(
+                """SELECT id, created_at, domain, difficulty, score FROM mock_interview_reports
+                WHERE user_id=%s ORDER BY created_at DESC, id DESC LIMIT %s""",
+                (user_id, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT id, created_at, domain, difficulty, score FROM mock_interview_reports
+                WHERE user_id=? ORDER BY created_at DESC, id DESC LIMIT ?""",
+                (user_id, limit),
+            ).fetchall()
         return [dict(row) for row in rows]
 
 
@@ -194,12 +209,18 @@ def get_report(user_id: str, report_id: int) -> dict[str, Any] | None:
     except (TypeError, ValueError):
         return None
     with _connection() as (conn, postgres):
-        ph = "%s" if postgres else "?"
-        row = conn.execute(
-            f"""SELECT id, created_at, domain, difficulty, score, payload_json
-            FROM mock_interview_reports WHERE user_id={ph} AND id={ph}""",
-            (user_id, report_id),
-        ).fetchone()
+        if postgres:
+            row = conn.execute(
+                """SELECT id, created_at, domain, difficulty, score, payload_json
+                FROM mock_interview_reports WHERE user_id=%s AND id=%s""",
+                (user_id, report_id),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """SELECT id, created_at, domain, difficulty, score, payload_json
+                FROM mock_interview_reports WHERE user_id=? AND id=?""",
+                (user_id, report_id),
+            ).fetchone()
     if row is None:
         return None
     record = dict(row)

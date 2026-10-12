@@ -46,7 +46,7 @@ jobs:
       - name: Compile all Python source and tests
         run: python -m compileall -q app.py ui utils chains tests
       - name: Run multi-user persistence, security-guard and PDF report tests
-        run: python -m pytest -q tests/test_quiz_tracker_multiuser.py tests/test_mock_interview_reports.py tests/test_security_guard.py
+        run: python -m pytest -q tests/test_quiz_tracker_multiuser.py tests/test_mock_interview_reports.py tests/test_security_guard.py tests/test_auth_session_isolation.py
 
   bandit:
     runs-on: ubuntu-latest

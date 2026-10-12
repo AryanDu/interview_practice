@@ -4,6 +4,7 @@
 
 - Google OIDC is required; report and quiz history are scoped to the pseudonymous authenticated user ID.
 - The public deployment must configure a non-empty `ALLOWED_EMAILS` allowlist, a PostgreSQL `DATABASE_URL`, and the documented OIDC values. Do not commit secrets to this repository.
+- Account changes clear old Streamlit session state (chat history, current mock interview/report and cached vector/LLM objects) before the new account's UI is rendered.
 - Streamlit detailed error display is disabled. User answers, questions, domains and skill names included in PDF paragraphs are escaped, length-bounded, and rendered as plain text.
 - The checked-in generated Chroma vector database was removed. The runtime vector database path is now scoped to a SHA-256-derived per-user directory; new database files are ignored by Git.
 - Vector document identifiers use SHA-256 instead of MD5.

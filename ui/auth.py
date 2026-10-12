@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import os
+from collections.abc import MutableMapping
+from typing import Any
 
 import streamlit as st
 
@@ -66,6 +68,18 @@ def _show_setup_help(missing_auth: list[str], missing_database: bool, missing_al
     st.stop()
 
 
+
+def _reset_session_for_user(session_state: MutableMapping[str, Any], user_id: str) -> None:
+    """Clear in-memory user data whenever a Streamlit session changes identity."""
+    if not user_id:
+        raise ValueError("A non-empty authenticated user ID is required.")
+    if session_state.get("_app_session_owner_id") != user_id:
+        # Login happens before app widgets render; clear old account-specific chat,
+        # reports, quiz answers and cached vector/LLM objects to prevent session leakage.
+        session_state.clear()
+        session_state["_app_session_owner_id"] = user_id
+
+
 def require_authenticated_user() -> dict:
     """Require a Google-authenticated user and return a stable app-scoped ID."""
     settings = _auth_settings()
@@ -101,12 +115,13 @@ def require_authenticated_user() -> dict:
         st.stop()
 
     if email not in allowlist:
-            st.error("This Google account is not on the app's access list. Ask the app owner to allow your email.")
-            if st.button("Sign out"):
-                st.logout()
-            st.stop()
+        st.error("This Google account is not on the app's access list. Ask the app owner to allow your email.")
+        if st.button("Sign out"):
+            st.logout()
+        st.stop()
 
     user_id = hashlib.sha256(f"{issuer}:{subject}".encode("utf-8")).hexdigest()
+    _reset_session_for_user(st.session_state, user_id)
     st.session_state["auth_user_id"] = user_id
     st.session_state["auth_email"] = email
     st.session_state["auth_name"] = str(claims.get("name") or email.split("@")[0])

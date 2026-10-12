@@ -532,11 +532,14 @@ def _load_wrong_answers(session_id: str, limit: int = 60) -> list[dict]:
         conn.close()
 
 
-def _get_daily_goal() -> int:
+def _get_daily_goal(session_id: str) -> int:
     conn = _db()
     try:
-        row = conn.execute("SELECT setting_value FROM app_settings WHERE setting_key = 'daily_goal_questions'").fetchone()
-        value = int(row[0]) if row else DEFAULT_DAILY_GOAL
+        row = conn.execute(
+            "SELECT setting_value FROM user_settings WHERE session_id = ? AND setting_key = 'daily_goal_questions'",
+            (session_id,),
+        ).fetchone()
+        value = int(row["setting_value"]) if row else DEFAULT_DAILY_GOAL
         return min(200, max(5, value))
     except (TypeError, ValueError):
         return DEFAULT_DAILY_GOAL
@@ -544,14 +547,16 @@ def _get_daily_goal() -> int:
         conn.close()
 
 
-def _save_daily_goal() -> None:
+def _save_daily_goal(session_id: str | None = None) -> None:
+    profile_id = session_id or st.session_state.get("auth_user_id") or DEFAULT_PROFILE_ID
     value = min(200, max(5, int(st.session_state.get("daily_goal_input", DEFAULT_DAILY_GOAL))))
     conn = _db()
     try:
         with conn:
             conn.execute(
-                "INSERT INTO app_settings(setting_key, setting_value) VALUES('daily_goal_questions', ?) "
-                "ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value", (str(value),)
+                "INSERT INTO user_settings(session_id, setting_key, setting_value) VALUES (?, 'daily_goal_questions', ?) "
+                "ON CONFLICT(session_id, setting_key) DO UPDATE SET setting_value = excluded.setting_value",
+                (profile_id, str(value)),
             )
     finally:
         conn.close()
@@ -663,7 +668,7 @@ def _render_progress(session_id: str) -> tuple[list[dict], list[dict]]:
     total_questions = sum(int(row["total"]) for row in attempts)
     correct_total = sum(int(row["correct"]) for row in attempts)
     accuracy = round(100 * correct_total / total_questions) if total_questions else 0
-    goal = _get_daily_goal()
+    goal = _get_daily_goal(session_id)
 
     st.subheader("Your progress")
     metric_cols = st.columns(4)
@@ -677,7 +682,7 @@ def _render_progress(session_id: str) -> tuple[list[dict], list[dict]]:
         st.session_state.daily_goal_input = goal
     st.number_input(
         "Daily question goal", min_value=5, max_value=200, step=5,
-        key="daily_goal_input", on_change=_save_daily_goal,
+        key="daily_goal_input", on_change=_save_daily_goal, args=(session_id,),
         help="Your goal is saved automatically when you change this number."
     )
 
@@ -832,10 +837,10 @@ def _render_active_quiz(session_id: str) -> None:
         st.rerun()
 
 
-def render_quiz_tracker_tab() -> None:
+def render_quiz_tracker_tab(user_id: str | None = None) -> None:
     st.header("🧠 Quiz Studio & Progress Tracker")
     st.write("Generate a quiz from a topic or your study notes, practise weak areas, and monitor your interview-preparation progress.")
-    session_id = DEFAULT_PROFILE_ID
+    session_id = user_id or st.session_state.get("auth_user_id") or DEFAULT_PROFILE_ID
 
     if not _api_key():
         with st.expander("How to enable AI quiz generation", expanded=True):

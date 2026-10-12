@@ -152,6 +152,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 .v2-goal-ring {
   position:relative; display:grid; place-items:center; flex:0 0 82px; width:82px; height:82px;
   border-radius:50%; background:conic-gradient(#3556D8 0 var(--goal-pct), #E9ECF7 var(--goal-pct) 100%);
+  transition: background 240ms ease;
 }
 .v2-goal-ring::before { content:""; position:absolute; inset:7px; border-radius:50%; background:#FFFFFF; }
 .v2-goal-ring span { position:relative; z-index:1; color:#233FAF; font-size:.95rem; font-weight:900; }

@@ -163,7 +163,7 @@ def render_interview_prep_tab(config):
                     response_text = None
             else:
                 # Generate response using LLM manager
-                with st.spinner("Generating interview questions..."):
+                with st.spinner("Building your personalized study pack…"):
                     response = st.session_state.llm_manager.generate_response(
                         provider=config["provider"],
                         system_prompt=prompts["system"],
@@ -195,7 +195,7 @@ def render_interview_prep_tab(config):
                 
                 # LLM Validation
                 if config["validate_with_llm"] and config["validator_provider"]:
-                    with st.spinner("Validating with second LLM..."):
+                    with st.spinner("Running a second review for consistency…"):
                         try:
                             validation = st.session_state.llm_manager.validate_response(
                                 main_provider=config["provider"],
@@ -229,7 +229,7 @@ def render_interview_prep_tab(config):
                 
                 # Generate image
                 if config["generate_image"] and st.session_state.image_generator:
-                    with st.spinner("Generating motivational image..."):
+                    with st.spinner("Adding a little visual motivation…"):
                         try:
                             image_result = st.session_state.image_generator.generate_motivational_image()
                             if image_result.get("success"):

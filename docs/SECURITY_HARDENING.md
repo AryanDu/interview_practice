@@ -17,6 +17,6 @@
 
 ## Automated security controls
 
-The CI workflow compiles the app, runs SQLite-backed report and multi-user isolation tests, performs Bandit high/medium severity scanning, audits dependencies with the narrowly documented ChromaDB exception, and scans Git history for accidentally committed secrets using Gitleaks.
+The CI workflow compiles the app, runs every automated test file matching `tests/test_*.py` (including a 60-identity, 12-worker SQLite concurrency/isolation smoke test), performs Bandit scanning, audits dependencies with the narrowly documented ChromaDB exception, and scans Git history for accidentally committed secrets using Gitleaks. The synthetic SQLite test is not a production PostgreSQL load test.
 
 A clean current tree does not erase an earlier file from public Git history. If Gitleaks finds a real credential, revoke/rotate it first; history rewrite and cache/clone cleanup may also be necessary.

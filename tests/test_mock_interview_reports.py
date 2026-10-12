@@ -72,3 +72,26 @@ def test_report_payload_bounds_large_user_content():
     assert len(payload["ideal_answers"][0]) <= 5000
     assert payload["score"] == 100
     assert len(payload["skills"]) <= 15
+
+
+def test_60_simulated_users_have_isolated_report_history(monkeypatch, tmp_path):
+    """Exercise shared-store concurrency with 60 identities and bounded parallel writes."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    configure_sqlite(monkeypatch, tmp_path)
+
+    def create_and_check(index):
+        user_id = f"sim-user-{index}"
+        report_id = reports.save_report(user_id, f"token-{index}", sample_payload(score=index % 101))
+        own_history = reports.list_reports(user_id, limit=5)
+        other_user_id = f"sim-user-{(index + 1) % 60}"
+        cross_user_result = reports.get_report(other_user_id, report_id)
+        return (
+            len(own_history) == 1
+            and own_history[0]["score"] == index % 101
+            and cross_user_result is None
+        )
+
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        results = list(executor.map(create_and_check, range(60)))
+    assert all(results)

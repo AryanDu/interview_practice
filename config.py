@@ -5,17 +5,36 @@ import os
 from dotenv import load_dotenv
 from typing import Optional
 
-# Load environment variables
+# Load local environment variables; Streamlit Cloud secrets are read separately below.
 load_dotenv()
+
+
+def _configured_secret(*names: str) -> Optional[str]:
+    """Read a setting from environment/.env first, then Streamlit Cloud Secrets."""
+    for name in names:
+        value = os.getenv(name)
+        if value and value.strip():
+            return value.strip()
+    try:
+        import streamlit as st
+        for name in names:
+            value = st.secrets.get(name)
+            if value and str(value).strip():
+                return str(value).strip()
+    except Exception:
+        # Local runs without Streamlit secrets are expected.
+        pass
+    return None
+
 
 class Config:
     """Application configuration"""
     
     # API Keys
-    OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
-    GOOGLE_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")  # Uses GEMINI_API_KEY from .env
-    ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
-    GROK_API_KEY: Optional[str] = os.getenv("GROK_API_KEY")
+    OPENAI_API_KEY: Optional[str] = _configured_secret("OPENAI_API_KEY")
+    GOOGLE_API_KEY: Optional[str] = _configured_secret("GEMINI_API_KEY", "GOOGLE_API_KEY")
+    ANTHROPIC_API_KEY: Optional[str] = _configured_secret("ANTHROPIC_API_KEY")
+    GROK_API_KEY: Optional[str] = _configured_secret("GROK_API_KEY", "XAI_API_KEY")
     OLLAMA_BASE_URL: Optional[str] = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     
     # Model defaults

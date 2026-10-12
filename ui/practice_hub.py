@@ -37,6 +37,14 @@ _HUB_CSS = """
 
 def _open_workspace(index: int, focus: str = "") -> None:
     st.session_state.active_tab = index
+    labels = {
+        -4: "⚙️ Settings", -3: "📄 Reports & History", -2: "🧪 Practice Hub",
+        -1: "🏠 Command Center", 0: "🧠 Quiz Studio & Progress",
+        1: "📚 Interview Prep", 2: "🎤 Mock Interview", 3: "💬 Chat Assistant",
+        4: "📊 Analytics", 5: "🎨 Visual Tools", 6: "🔒 Security Testing",
+    }
+    if index in labels:
+        st.session_state.v2_workspace_picker = labels[index]
     if focus:
         st.session_state.quiz_tracker_focus = focus
     else:

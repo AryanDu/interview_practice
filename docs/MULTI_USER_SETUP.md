@@ -27,7 +27,7 @@ Streamlit's built-in OIDC handles login cookies and identity-token validation. T
 Open the app's **Settings → Secrets** and add the following TOML. Replace placeholders with real values. The DATABASE_URL and ALLOWED_EMAILS lines must be placed **before** the [auth] heading so they stay at the top level.
 
     DATABASE_URL = "postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require"
-    ALLOWED_EMAILS = "aryan@gmail.com,friend1@gmail.com,friend2@gmail.com"
+    ALLOWED_EMAILS = "you@example.com,friend@example.com"
 
     [auth]
     redirect_uri = "https://interview-practice-by-aryan.streamlit.app/oauth2callback"
@@ -38,7 +38,7 @@ Open the app's **Settings → Secrets** and add the following TOML. Replace plac
 
 - Use the real Postgres URI from Neon, including its SSL parameters.
 - Create a long random cookie_secret; do not reuse the OAuth client secret.
-- ALLOWED_EMAILS is optional. If set, only comma-separated addresses on that list may enter. Leave it as an empty string only if you intend to allow any Google account to sign in.
+- ALLOWED_EMAILS is required for this public deployment. List approved Google accounts as comma-separated addresses; the app refuses to start if the allowlist is missing or empty.
 - The app uses one shared Gemini API key for question generation. For a 50–60 person group, restrict access with ALLOWED_EMAILS and monitor Gemini quota; all users share the provider's quota.
 - Never commit this secrets block to GitHub or post it publicly.
 

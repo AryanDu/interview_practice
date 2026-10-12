@@ -1,26 +1,37 @@
-name: Multi-user tracker checks
+name: Final quality and security checks
 
 on:
   pull_request:
     paths:
       - "app.py"
-      - "ui/auth.py"
-      - "ui/quiz_tracker.py"
-      - "tests/test_quiz_tracker_multiuser.py"
+      - "ui/**"
+      - "utils/**"
+      - "chains/**"
+      - "tests/**"
       - "requirements.txt"
+      - ".streamlit/config.toml"
+      - "docs/MULTI_USER_SETUP.md"
+      - ".gitignore"
       - ".github/workflows/multi-user-tests.yml"
   push:
     branches: ["main"]
     paths:
       - "app.py"
-      - "ui/auth.py"
-      - "ui/quiz_tracker.py"
-      - "tests/test_quiz_tracker_multiuser.py"
+      - "ui/**"
+      - "utils/**"
+      - "chains/**"
+      - "tests/**"
       - "requirements.txt"
+      - ".streamlit/config.toml"
+      - "docs/MULTI_USER_SETUP.md"
+      - ".gitignore"
       - ".github/workflows/multi-user-tests.yml"
 
+permissions:
+  contents: read
+
 jobs:
-  test-tracker:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,11 +39,31 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - name: Install tracker test dependencies
+      - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "streamlit>=1.42.0" pandas requests pypdf streamlit-autorefresh "psycopg[binary,pool]>=3.2.3" pytest
-      - name: Compile application and tests
-        run: python -m compileall -q app.py ui tests/test_quiz_tracker_multiuser.py
-      - name: Run multi-user tracker tests
-        run: python -m pytest -q tests/test_quiz_tracker_multiuser.py
+          python -m pip install "streamlit>=1.42.0" pandas requests pypdf streamlit-autorefresh "psycopg[binary,pool]>=3.2.3" reportlab pytest
+      - name: Compile all Python source and tests
+        run: python -m compileall -q app.py ui utils chains tests
+      - name: Run multi-user persistence and PDF report tests
+        run: python -m pytest -q tests/test_quiz_tracker_multiuser.py tests/test_mock_interview_reports.py
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install security scanners
+        run: python -m pip install --upgrade bandit pip-audit
+      - name: Scan Python code for high-severity security issues
+        run: bandit -r app.py ui utils chains -ll
+      - name: Audit dependencies for known vulnerabilities
+        run: pip-audit -r requirements.txt
+      - name: Scan repository history for exposed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

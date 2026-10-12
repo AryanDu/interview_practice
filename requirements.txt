@@ -29,6 +29,9 @@ faiss-cpu>=1.7.4
 # Image generation
 pillow>=10.0.0
 
+# PDF report generation
+reportlab>=4.2.0
+
 # Utilities
 pandas>=2.1.0
 numpy>=1.24.0

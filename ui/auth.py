@@ -33,7 +33,7 @@ def _auth_settings() -> dict:
         return {}
 
 
-def _show_setup_help(missing_auth: list[str], missing_database: bool) -> None:
+def _show_setup_help(missing_auth: list[str], missing_database: bool, missing_allowlist: bool = False) -> None:
     st.title("🔐 Interview Practice — setup required")
     st.write("Multi-user sign-in and isolated progress are enabled in this version, but deployment secrets are not configured yet.")
     if missing_auth:
@@ -44,10 +44,12 @@ def _show_setup_help(missing_auth: list[str], missing_database: bool) -> None:
         )
     if missing_database:
         st.error("DATABASE_URL is missing. Create a PostgreSQL database (for example in Neon) and paste its SSL connection string above the [auth] section.")
-    if missing_auth or missing_database:
+    if missing_allowlist:
+        st.error("ALLOWED_EMAILS is required for this public app. Add the comma-separated Google accounts allowed to use it.")
+    if missing_auth or missing_database or missing_allowlist:
         setup_example = chr(10).join([
             'DATABASE_URL = "postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require"',
-            'ALLOWED_EMAILS = ""  # Optional: comma-separated emails to restrict access',
+            'ALLOWED_EMAILS = "you@example.com,friend@example.com"  # Required allowlist',
             "",
             "[auth]",
             'redirect_uri = "https://interview-practice-by-aryan.streamlit.app/oauth2callback"',
@@ -70,8 +72,10 @@ def require_authenticated_user() -> dict:
     required = ("redirect_uri", "cookie_secret", "client_id", "client_secret", "server_metadata_url")
     missing = [key for key in required if not str(settings.get(key, "")).strip()]
     database_url = _secret("DATABASE_URL")
-    if missing or not database_url:
-        _show_setup_help(missing, not bool(database_url))
+    allowed_emails = _secret("ALLOWED_EMAILS")
+    allowlist = {item.strip().lower() for item in allowed_emails.split(",") if item.strip()}
+    if missing or not database_url or not allowlist:
+        _show_setup_help(missing, not bool(database_url), not bool(allowlist))
 
     try:
         logged_in = bool(st.user.is_logged_in)
@@ -90,16 +94,13 @@ def require_authenticated_user() -> dict:
     subject = str(claims.get("sub", "")).strip()
     issuer = str(claims.get("iss", "google")).strip()
     verified = claims.get("email_verified")
-    if not email or not subject or verified is False or str(verified).lower() == "false":
+    if not email or not subject or str(verified).lower() != "true":
         st.error("Google did not provide a verified email and stable user identifier. Please sign out and try another Google account.")
         if st.button("Sign out"):
             st.logout()
         st.stop()
 
-    allowed_emails = _secret("ALLOWED_EMAILS")
-    if allowed_emails:
-        allowlist = {item.strip().lower() for item in allowed_emails.split(",") if item.strip()}
-        if email not in allowlist:
+    if email not in allowlist:
             st.error("This Google account is not on the app's access list. Ask the app owner to allow your email.")
             if st.button("Sign out"):
                 st.logout()

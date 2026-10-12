@@ -61,3 +61,12 @@ jailbreak_results/
 # Temporary files
 *.tmp
 *.temp
+
+# Generated local data and private user-specific stores
+data/vector_db/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+mock_interview_reports.sqlite3
+*.pdf
+.pytest_cache/

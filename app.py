@@ -13,6 +13,7 @@ from ui.chatbot import render_chatbot_tab
 from ui.analytics import render_analytics_tab
 from ui.security import render_security_testing_tab
 from ui.visual_tools import render_visual_tools_tab
+from ui.quiz_tracker import render_quiz_tracker_tab
 
 # Set up the page
 st.set_page_config(
@@ -69,7 +70,7 @@ def main():
     sidebar_config = render_sidebar()
     
     # Tab configuration with names
-    tab_names = ["📚 Interview Prep", "🎤 Mock Interview", "💬 Chat Assistant", "📊 Analytics", "🎨 Visual Tools", "🔒 Security Testing"]
+    tab_names = ["🧠 Quiz & Progress Tracker", "📚 Interview Prep", "🎤 Mock Interview", "💬 Chat Assistant", "📊 Analytics", "🎨 Visual Tools", "🔒 Security Testing"]
     
     # Initialize active_tab in session state if not exists
     if 'active_tab' not in st.session_state:
@@ -94,16 +95,18 @@ def main():
     
     # Render selected tab based on active_tab
     if st.session_state.active_tab == 0:
-        render_interview_prep_tab(sidebar_config)
+        render_quiz_tracker_tab()
     elif st.session_state.active_tab == 1:
-        render_mock_interview_tab(sidebar_config)
+        render_interview_prep_tab(sidebar_config)
     elif st.session_state.active_tab == 2:
-        render_chatbot_tab(sidebar_config)
+        render_mock_interview_tab(sidebar_config)
     elif st.session_state.active_tab == 3:
-        render_analytics_tab()
+        render_chatbot_tab(sidebar_config)
     elif st.session_state.active_tab == 4:
-        render_visual_tools_tab()
+        render_analytics_tab()
     elif st.session_state.active_tab == 5:
+        render_visual_tools_tab()
+    elif st.session_state.active_tab == 6:
         render_security_testing_tab()
 
 if __name__ == "__main__":

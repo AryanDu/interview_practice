@@ -46,7 +46,7 @@ def render_sidebar():
         # Model selection
         models = {
             "openai": Config.OPENAI_MODELS,
-            "gemini": ["gemini-2.5-flash", "gemini-2.0-flash"],
+            "gemini": ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash"],
             "claude": ["claude-3-5-sonnet-20241022"],
             "grok": ["grok-2", "grok-vision-beta"],
             "ollama": []  # Will be populated dynamically

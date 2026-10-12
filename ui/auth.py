@@ -45,17 +45,18 @@ def _show_setup_help(missing_auth: list[str], missing_database: bool) -> None:
     if missing_database:
         st.error("DATABASE_URL is missing. Create a PostgreSQL database (for example in Neon) and paste its SSL connection string above the [auth] section.")
     if missing_auth or missing_database:
-        st.code(
-            'DATABASE_URL = "postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require"\\n'
-            'ALLOWED_EMAILS = ""  # Optional: comma-separated emails to restrict access\\n'
-            '\\n[auth]\\n'
-            'redirect_uri = "https://interview-practice-by-aryan.streamlit.app/oauth2callback"\\n'
-            'cookie_secret = "PASTE_A_LONG_RANDOM_SECRET_HERE"\\n'
-            'client_id = "GOOGLE_OAUTH_CLIENT_ID"\\n'
-            'client_secret = "GOOGLE_OAUTH_CLIENT_SECRET"\\n'
+        setup_example = chr(10).join([
+            'DATABASE_URL = "postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require"',
+            'ALLOWED_EMAILS = ""  # Optional: comma-separated emails to restrict access',
+            "",
+            "[auth]",
+            'redirect_uri = "https://interview-practice-by-aryan.streamlit.app/oauth2callback"',
+            'cookie_secret = "PASTE_A_LONG_RANDOM_SECRET_HERE"',
+            'client_id = "GOOGLE_OAUTH_CLIENT_ID"',
+            'client_secret = "GOOGLE_OAUTH_CLIENT_SECRET"',
             'server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"',
-            language="toml",
-        )
+        ])
+        st.code(setup_example, language="toml")
         st.caption("Keep the database URL, OAuth client secret, and cookie secret private. Never commit them to GitHub.")
         if missing_auth:
             st.caption("Missing Google OIDC settings: " + ", ".join(missing_auth))

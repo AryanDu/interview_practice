@@ -14,101 +14,102 @@ from utils.prompts import PromptEngineer
 def render_sidebar():
     """Render and return sidebar configuration"""
     with st.sidebar:
-        st.header("⚙️ Configuration")
+        with st.expander("⚙️ AI & generation settings", expanded=False):
+            st.header("⚙️ Configuration")
         
-        # API Keys status
-        keys_status = Config.validate_api_keys()
-        st.subheader("API Keys Status")
-        for provider, status in keys_status.items():
-            status_icon = "✅" if status else "❌"
-            st.write(f"{status_icon} {provider.capitalize()}")
+            # API Keys status
+            keys_status = Config.validate_api_keys()
+            st.subheader("API Keys Status")
+            for provider, status in keys_status.items():
+                status_icon = "✅" if status else "❌"
+                st.write(f"{status_icon} {provider.capitalize()}")
         
-        # Allow the quiz tracker to open even before an LLM provider is configured.
-        available_providers = [k for k, v in keys_status.items() if v]
-        if available_providers:
-            selected_provider = st.selectbox(
-                "Select LLM Provider",
-                options=available_providers,
+            # Allow the quiz tracker to open even before an LLM provider is configured.
+            available_providers = [k for k, v in keys_status.items() if v]
+            if available_providers:
+                selected_provider = st.selectbox(
+                    "Select LLM Provider",
+                    options=available_providers,
+                    index=0
+                )
+            else:
+                st.warning("No LLM provider configured. Quiz tracking opens, but AI generation needs a Gemini API key.")
+                selected_provider = "gemini"
+        
+            # Show Ollama status and instructions
+            if selected_provider == "ollama":
+                from utils.llm_handlers import OllamaHandler
+                try:
+                    ollama = OllamaHandler()
+                    if ollama.connection_verified:
+                        st.success("✅ Ollama is running")
+                    else:
+                        st.error("❌ Ollama is not running. Start with: ollama serve")
+                        st.info("📖 See OLLAMA_TROUBLESHOOTING.md for detailed setup instructions")
+                except:
+                    st.warning("⚠️ Could not verify Ollama connection")
+        
+            # Model selection
+            models = {
+                "openai": Config.OPENAI_MODELS,
+                "gemini": ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash"],
+                "claude": ["claude-3-5-sonnet-20241022"],
+                "grok": ["grok-2", "grok-vision-beta"],
+                "ollama": []  # Will be populated dynamically
+            }
+        
+            # For Ollama, show all suggested models in dropdown
+            if selected_provider == "ollama":
+                models["ollama"] = ["phi3", "mistral", "neural-chat", "llama2", "dolphin-mixtral", "openchat"]
+        
+            selected_model = st.selectbox(
+                "Select Model",
+                options=models.get(selected_provider, ["default"]),
                 index=0
             )
-        else:
-            st.warning("No LLM provider configured. Quiz tracking opens, but AI generation needs a Gemini API key.")
-            selected_provider = "gemini"
         
-        # Show Ollama status and instructions
-        if selected_provider == "ollama":
-            from utils.llm_handlers import OllamaHandler
-            try:
-                ollama = OllamaHandler()
-                if ollama.connection_verified:
-                    st.success("✅ Ollama is running")
-                else:
-                    st.error("❌ Ollama is not running. Start with: ollama serve")
-                    st.info("📖 See OLLAMA_TROUBLESHOOTING.md for detailed setup instructions")
-            except:
-                st.warning("⚠️ Could not verify Ollama connection")
+            st.divider()
         
-        # Model selection
-        models = {
-            "openai": Config.OPENAI_MODELS,
-            "gemini": ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash"],
-            "claude": ["claude-3-5-sonnet-20241022"],
-            "grok": ["grok-2", "grok-vision-beta"],
-            "ollama": []  # Will be populated dynamically
-        }
+            # Prompt Engineering Technique
+            st.subheader("📝 Prompt Engineering")
+            prompt_engineer = PromptEngineer()
+            techniques = prompt_engineer.get_all_techniques()
+            selected_technique = st.selectbox(
+                "Select Prompt Technique",
+                options=techniques,
+                index=0
+            )
         
-        # For Ollama, show all suggested models in dropdown
-        if selected_provider == "ollama":
-            models["ollama"] = ["phi3", "mistral", "neural-chat", "llama2", "dolphin-mixtral", "openchat"]
+            st.divider()
         
-        selected_model = st.selectbox(
-            "Select Model",
-            options=models.get(selected_provider, ["default"]),
-            index=0
-        )
+            # LLM Parameters
+            st.subheader("🎛️ LLM Parameters")
+            temperature = st.slider("Temperature", 0.0, 2.0, Config.DEFAULT_TEMPERATURE, 0.1)
+            top_p = st.slider("Top-p", 0.0, 1.0, Config.DEFAULT_TOP_P, 0.05)
+            max_tokens = st.slider("Max Tokens", 100, 4000, Config.DEFAULT_MAX_TOKENS, 100)
+            frequency_penalty = st.slider("Frequency Penalty", -2.0, 2.0, Config.DEFAULT_FREQUENCY_PENALTY, 0.1)
+            presence_penalty = st.slider("Presence Penalty", -2.0, 2.0, Config.DEFAULT_PRESENCE_PENALTY, 0.1)
         
-        st.divider()
+            st.divider()
         
-        # Prompt Engineering Technique
-        st.subheader("📝 Prompt Engineering")
-        prompt_engineer = PromptEngineer()
-        techniques = prompt_engineer.get_all_techniques()
-        selected_technique = st.selectbox(
-            "Select Prompt Technique",
-            options=techniques,
-            index=0
-        )
-        
-        st.divider()
-        
-        # LLM Parameters
-        st.subheader("🎛️ LLM Parameters")
-        temperature = st.slider("Temperature", 0.0, 2.0, Config.DEFAULT_TEMPERATURE, 0.1)
-        top_p = st.slider("Top-p", 0.0, 1.0, Config.DEFAULT_TOP_P, 0.05)
-        max_tokens = st.slider("Max Tokens", 100, 4000, Config.DEFAULT_MAX_TOKENS, 100)
-        frequency_penalty = st.slider("Frequency Penalty", -2.0, 2.0, Config.DEFAULT_FREQUENCY_PENALTY, 0.1)
-        presence_penalty = st.slider("Presence Penalty", -2.0, 2.0, Config.DEFAULT_PRESENCE_PENALTY, 0.1)
-        
-        st.divider()
-        
-        # Advanced features
-        with st.expander("🔬 Advanced Features"):
-            use_rag = st.checkbox("Use RAG (Job Description Context)", value=False)
-            validate_with_llm = st.checkbox("Validate with Second LLM", value=False)
-            validator_provider = None
-            if validate_with_llm:
-                other_providers = [p for p in available_providers if p != selected_provider]
-                if other_providers:
-                    validator_provider = st.selectbox(
-                        "Validator LLM",
-                        options=other_providers,
-                        index=0
-                    )
-                else:
-                    st.warning("No other providers available for validation")
-            check_duplicates = st.checkbox("Check for Duplicates (Vector DB)", value=False)
-            generate_image = st.checkbox("Generate Motivational Image", value=False)
-            use_langchain = st.checkbox("Use LangChain Chains", value=False)
+            # Advanced features
+            with st.expander("🔬 Advanced Features"):
+                use_rag = st.checkbox("Use RAG (Job Description Context)", value=False)
+                validate_with_llm = st.checkbox("Validate with Second LLM", value=False)
+                validator_provider = None
+                if validate_with_llm:
+                    other_providers = [p for p in available_providers if p != selected_provider]
+                    if other_providers:
+                        validator_provider = st.selectbox(
+                            "Validator LLM",
+                            options=other_providers,
+                            index=0
+                        )
+                    else:
+                        st.warning("No other providers available for validation")
+                check_duplicates = st.checkbox("Check for Duplicates (Vector DB)", value=False)
+                generate_image = st.checkbox("Generate Motivational Image", value=False)
+                use_langchain = st.checkbox("Use LangChain Chains", value=False)
     
     return {
         "provider": selected_provider,

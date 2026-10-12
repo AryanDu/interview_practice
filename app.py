@@ -15,90 +15,74 @@ from ui.security import render_security_testing_tab
 from ui.visual_tools import render_visual_tools_tab
 from ui.quiz_tracker import render_quiz_tracker_tab
 from ui.auth import require_authenticated_user
+from ui.v2_theme import apply_v2_theme, render_brand_bar
 
 # Set up the page
 st.set_page_config(
-    page_title="Interview Practice App",
+    page_title="Interview Practice · V2",
     page_icon="💼",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-_APP_CSS = """
-<style>
-    :root {
-        --primary-color: #c44900;
-        --secondary-color: #183a37;
-        --dark-bg: #04151f;
-        --text-light: #efd6ac;
-        --text-gold: #d4a574;
-    }
-    
-    body {
-        background-color: var(--dark-bg);
-        color: var(--text-light);
-    }
-    
-    .main-header {
-        color: var(--text-gold);
-        text-align: center;
-        font-size: 3rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        margin-bottom: 2rem;
-    }
-    
-    .stTabs [data-baseweb="tab-list"] button {
-        color: var(--text-light);
-        font-weight: 500;
-    }
-    
-    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
-        color: var(--primary-color);
-        border-bottom: 2px solid var(--primary-color);
-    }
-</style>
-"""
 
 def main():
     """Main orchestrator function, protected by Google OIDC login."""
     user = require_authenticated_user()
     st.session_state.auth_user_id = user["id"]
     initialize_session_state()
-    st.markdown(_APP_CSS, unsafe_allow_html=True)
+
+    # V2 styling is presentation-only; feature modules remain unchanged.
+    apply_v2_theme()
+
     with st.sidebar:
-        st.write(f"Signed in as **{user['name']}**")
+        st.caption("SIGNED IN AS")
+        st.write(f"**{user['name']}**")
         st.caption(user["email"])
         st.button("Sign out", on_click=st.logout, use_container_width=True)
-    st.markdown('<h1 class="main-header">💼 Interview Practice App</h1>', unsafe_allow_html=True)
-    
-    # Render sidebar and get configuration
+
+    render_brand_bar()
+
+    # Render sidebar configuration and get the exact same feature configuration.
     sidebar_config = render_sidebar()
-    
-    # Tab configuration with names
-    tab_names = ["🧠 Quiz & Progress Tracker", "📚 Interview Prep", "🎤 Mock Interview", "💬 Chat Assistant", "📊 Analytics", "🎨 Visual Tools", "🔒 Security Testing"]
-    
-    # Initialize active_tab in session state if not exists
-    if 'active_tab' not in st.session_state:
+
+    # Keep the existing seven workspaces and their original render functions.
+    tab_names = [
+        "🧠 Quiz Studio & Progress",
+        "📚 Interview Prep",
+        "🎤 Mock Interview",
+        "💬 Chat Assistant",
+        "📊 Analytics",
+        "🎨 Visual Tools",
+        "🔒 Security Testing",
+    ]
+
+    if "active_tab" not in st.session_state:
         st.session_state.active_tab = 0
-    
-    # Tab selection with navigation
-    st.markdown("---")
-    col1, col2 = st.columns([0.2, 0.8])
-    with col1:
-        st.write("**Navigate:**")
-    with col2:
-        selected_tab = st.selectbox(
-            "Select Tab",
-            options=range(len(tab_names)),
-            format_func=lambda x: tab_names[x],
-            index=st.session_state.active_tab,
-            label_visibility="collapsed"
+
+    st.markdown('<div class="v2-nav-label">JUMP TO A WORKSPACE</div>', unsafe_allow_html=True)
+    nav_intro, nav_picker = st.columns([0.34, 0.66], gap="medium")
+    with nav_intro:
+        st.markdown("**What are we working on?**")
+        st.markdown(
+            '<div class="v2-nav-hint">Your practice history and saved progress stay intact.</div>',
+            unsafe_allow_html=True,
         )
-        st.session_state.active_tab = selected_tab
-    
+    with nav_picker:
+        # Streamlit's native selectbox supports type-to-filter, so this stays a
+        # real navigation control rather than a decorative, non-functional search.
+        selected_section = st.selectbox(
+            "Search sections",
+            options=tab_names,
+            index=st.session_state.active_tab,
+            placeholder="Type to find a section…",
+            label_visibility="collapsed",
+        )
+        st.session_state.active_tab = tab_names.index(selected_section)
+
     st.markdown("---")
-    
-    # Render selected tab based on active_tab
+
+    # Existing rendering and feature behavior stays the same.
     if st.session_state.active_tab == 0:
         render_quiz_tracker_tab(user_id=user["id"])
     elif st.session_state.active_tab == 1:
@@ -113,6 +97,7 @@ def main():
         render_visual_tools_tab()
     elif st.session_state.active_tab == 6:
         render_security_testing_tab()
+
 
 if __name__ == "__main__":
     main()

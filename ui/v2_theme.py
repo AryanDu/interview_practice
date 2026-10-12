@@ -265,6 +265,65 @@ header[data-testid="stHeader"] {
   margin-top: 0.1rem;
 }
 
+.v2-workspace-intro {
+  padding: 1.25rem 1.45rem;
+  margin-bottom: 1rem;
+  border: 1px solid #E9E5D5;
+  border-radius: 18px;
+  background: linear-gradient(110deg, #FFFFFF 0%, #FFFFFF 75%, #FFF4B8 100%);
+}
+.v2-page-kicker {
+  color: var(--v2-cobalt);
+  font-size: .67rem;
+  font-weight: 850;
+  letter-spacing: .12em;
+}
+.v2-workspace-intro h1 {
+  margin: .45rem 0 .35rem;
+  color: var(--v2-ink);
+  letter-spacing: -.055em;
+  font-size: clamp(1.9rem, 3.5vw, 2.65rem);
+}
+.v2-workspace-intro p {
+  margin: 0;
+  max-width: 65ch;
+  color: var(--v2-muted);
+  line-height: 1.55;
+}
+.v2-sidebar-nav-title {
+  color: #B9C4E2;
+  font-size: .66rem;
+  font-weight: 850;
+  letter-spacing: .12em;
+  margin: .2rem 0 .55rem;
+}
+[data-testid="stSidebar"] .stButton > button {
+  min-height: 2.2rem;
+  padding: .3rem .45rem;
+  background: var(--v2-sidebar-soft);
+  color: #F1F3FC;
+  border-color: rgba(255,255,255,.12);
+  border-radius: 10px;
+  font-size: .95rem;
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+  background: var(--v2-butter) !important;
+  color: var(--v2-cobalt-deep) !important;
+  border-color: var(--v2-butter) !important;
+}
+[data-testid="stMain"] {
+  font-family: "Avenir Next", "Nunito", "Trebuchet MS", ui-rounded, system-ui, sans-serif;
+}
+@media (max-width: 760px) {
+  .v2-workspace-intro {
+    padding: 1.05rem;
+    border-radius: 16px;
+  }
+  .v2-workspace-intro h1 {
+    font-size: clamp(1.8rem, 7vw, 2.45rem);
+  }
+}
+
 .v2-top-streak {
   display:flex;
   flex-direction:column;

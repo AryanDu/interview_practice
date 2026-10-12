@@ -31,7 +31,7 @@ def test_quiz_history_isolated_by_user(monkeypatch, tmp_path):
     _use_temporary_sqlite(monkeypatch, tmp_path)
 
     tracker._save_attempt("user-a", "Python", "Easy", SAMPLE_QUESTIONS, {0: 1})
-    tracker._save_attempt("user-b", "Python", "Easy", SAMPLE_QUESTIONS, {0: 0, 1: 2})
+    tracker._save_attempt("user-b", "Python", "Easy", SAMPLE_QUESTIONS, {0: 1, 1: 2})
 
     attempts_a, topics_a = tracker._load_history("user-a")
     attempts_b, topics_b = tracker._load_history("user-b")

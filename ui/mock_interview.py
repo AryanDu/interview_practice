@@ -251,104 +251,76 @@ Return ONLY the questions, nothing else."""
 
 
 def _evaluate_mock_interview(config):
-    """Evaluate mock interview answers and generate score"""
-    with st.spinner("Evaluating your answers..."):
+    """Evaluate a mock interview in one LLM call to avoid serial-request delays."""
+    import json
+    import re
+
+    questions = st.session_state.mock_interview_questions or []
+    answers = [
+        st.session_state.mock_interview_answers.get(i, "")
+        for i in range(len(questions))
+    ]
+    if not questions:
+        st.error("No interview questions found to evaluate.")
+        return
+
+    with st.spinner("Evaluating your answers and preparing feedback..."):
         try:
-            # Prepare evaluation prompt
-            evaluation_prompt = """You are an expert interviewer. Rate the following interview responses on a scale of 0-100 based on:
-- Completeness of answer
-- Clarity and communication
-- Technical accuracy (if applicable)
-- Relevance to the question
-
-Provide a single overall score between 0-100 for the candidate's performance across all answers.
-
-Questions and Answers:
-"""
-            
-            for i, (q, a) in enumerate(zip(st.session_state.mock_interview_questions, 
-                                                [st.session_state.mock_interview_answers.get(j, "") for j in range(len(st.session_state.mock_interview_questions))]
-                                                  ), 1):
-                evaluation_prompt += f"\nQ{i}: {q}\nA{i}: {a}\n"
-            
-            evaluation_prompt += "\nProvide ONLY the numerical score (0-100), nothing else."
-            
-            # Get evaluation from LLM
-            eval_response = st.session_state.llm_manager.generate_response(
-                provider=config["provider"],
-                system_prompt="You are an expert interviewer evaluator.",
-                user_prompt=evaluation_prompt,
-                model=config["model"],
-                temperature=0.3,
-                top_p=0.9,
-                max_tokens=50
+            qa_text = "\n\n".join(
+                f"Q{i + 1}: {question}\nCandidate answer: {answer or '[No answer provided]'}"
+                for i, (question, answer) in enumerate(zip(questions, answers))
             )
-            
-            score_text = eval_response.get("content", "0").strip()
-            import re
-            score_match = re.search(r'\d+', score_text)
-            if score_match:
-                score = int(score_match.group())
-                score = min(100, max(0, score))
-            else:
-                score = 75
-            
+            prompt = f"""Evaluate this candidate's mock interview and return ONLY valid JSON.
+Use this exact schema:
+{{
+  "score": 0,
+  "skills": ["Skill 1", "Skill 2"],
+  "ideal_answers": ["Ideal answer to question 1", "Ideal answer to question 2"]
+}}
+Rules:
+- score must be an integer from 0 to 100 based on completeness, clarity, technical accuracy, and relevance.
+- skills must be a concise list of the main skills tested.
+- ideal_answers must contain exactly one useful, concise model answer per question, in the same order.
+- If an answer is blank, evaluate it as unanswered; do not assume the candidate answered it.
+- Return JSON only, no Markdown fences or extra commentary.
+
+Questions and candidate answers:
+{qa_text}"""
+
+            response = st.session_state.llm_manager.generate_response(
+                provider=config["provider"],
+                system_prompt="You are a fair, constructive expert interview evaluator. Follow the requested JSON schema exactly.",
+                user_prompt=prompt,
+                model=config["model"],
+                temperature=0.2,
+                top_p=0.9,
+                max_tokens=min(6000, max(1200, 500 * len(questions))),
+            )
+            raw = response.get("content", "").strip()
+            raw = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", raw, flags=re.IGNORECASE)
+            result = json.loads(raw)
+
+            score_value = result.get("score", 0)
+            score = min(100, max(0, int(score_value)))
             st.session_state.mock_interview_score = score
-            
-            # Extract skills from questions using LLM
-            with st.spinner("Analyzing skills tested..."):
-                try:
-                    skills_prompt = "Based on these interview questions, identify the key skills being tested.\nReturn ONLY a comma-separated list of skills, nothing else.\n\nQuestions:\n"
-                    skills_prompt += "\n".join(st.session_state.mock_interview_questions)
-                    
-                    skills_response = st.session_state.llm_manager.generate_response(
-                        provider=config["provider"],
-                        system_prompt="You are an expert at identifying technical and professional skills from interview questions.",
-                        user_prompt=skills_prompt,
-                        model=config["model"],
-                        temperature=0.3,
-                        top_p=0.9,
-                        max_tokens=100
-                    )
-                    
-                    skills_text = skills_response.get("content", "").strip()
-                    valid_skills = ["Python", "JavaScript", "System Design", "Database", "Problem Solving", 
-                                  "Communication", "Leadership", "Teamwork", "AWS", "Docker", "React", "Node.js"]
-                    detected_skills = [s.strip() for s in skills_text.split(',')]
-                    detected_skills = [s for s in detected_skills if s in valid_skills]
-                    st.session_state.mock_interview_skills = detected_skills if detected_skills else ["Problem Solving"]
-                except Exception as e:
-                    st.session_state.mock_interview_skills = ["Problem Solving"]
-            
-            # Generate ideal answers for each question
-            with st.spinner("Generating ideal answers..."):
-                try:
-                    ideal_answers = {}
-                    for i, question in enumerate(st.session_state.mock_interview_questions):
-                        ideal_prompt = f"""You are an expert interviewer. Provide the ideal/best answer to this interview question.
-Provide a comprehensive, well-structured answer that demonstrates strong understanding.
 
-Question: {question}
+            valid_skills = [
+                str(skill).strip() for skill in result.get("skills", [])
+                if str(skill).strip()
+            ]
+            st.session_state.mock_interview_skills = valid_skills[:12] or ["Problem Solving"]
 
-Provide only the ideal answer, nothing else."""
-                        
-                        ideal_response = st.session_state.llm_manager.generate_response(
-                            provider=config["provider"],
-                            system_prompt="You are an expert at providing ideal interview answers.",
-                            user_prompt=ideal_prompt,
-                            model=config["model"],
-                            temperature=0.3,
-                            top_p=0.9,
-                            max_tokens=300
-                        )
-                        
-                        ideal_answers[i] = ideal_response.get("content", "No ideal answer generated.")
-                    st.session_state.mock_interview_ideal_answers = ideal_answers
-                except Exception as e:
-                    st.session_state.mock_interview_ideal_answers = {}
-            
+            ideal_answers = result.get("ideal_answers", [])
+            st.session_state.mock_interview_ideal_answers = {
+                i: str(ideal_answers[i]).strip()
+                for i in range(min(len(questions), len(ideal_answers)))
+                if str(ideal_answers[i]).strip()
+            }
+
             st.success(f"✅ Interview completed! Your Mock Interview Score: **{score}%**")
+            if len(st.session_state.mock_interview_ideal_answers) < len(questions):
+                st.warning("Score is ready, but some ideal answers were missing from the AI response.")
             st.rerun()
-            
+
         except Exception as e:
             st.error(f"Error evaluating answers: {e}")

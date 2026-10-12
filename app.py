@@ -53,6 +53,8 @@ _WORKSPACE_LABELS = {
 def _navigate(index: int, focus: str = "", topic: str = "") -> None:
     """Route to an existing workspace or one of the V2 wrapper screens."""
     st.session_state.active_tab = index
+    if index in _WORKSPACE_LABELS:
+        st.session_state.v2_workspace_picker = _WORKSPACE_LABELS[index]
     if focus:
         st.session_state.quiz_tracker_focus = focus
     elif index != 0:

@@ -154,22 +154,37 @@ def render_mock_interview_tab(config):
             if st.button("✅ Submit Interview", type="primary", use_container_width=True, disabled=st.session_state.mock_interview_score is not None):
                 _evaluate_mock_interview(config)
         
-        # Show answers summary if interview is completed
+        # Show the completed evaluation without changing its saved score/report payload.
         if st.session_state.mock_interview_score is not None:
             st.divider()
-            st.subheader("📊 Interview Summary")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Mock Interview Score", f"{st.session_state.mock_interview_score}%")
-            with col2:
-                st.button(
-                    "Create Result Card",
-                    type="primary",
-                    use_container_width=True,
-                    on_click=_open_visual_tools_with_prefill,
-                )
-            
+            st.markdown('<div class="v2-interview-question">EVALUATION COMPLETE</div>', unsafe_allow_html=True)
+            st.subheader("Your interview breakdown")
+
+            final_score = int(st.session_state.mock_interview_score)
+            completed_answers = sum(
+                1 for index in range(len(st.session_state.mock_interview_questions))
+                if str(st.session_state.mock_interview_answers.get(index, "")).strip()
+            )
+            skill_count = len(st.session_state.get("mock_interview_skills", []))
+            score_cols = st.columns(3, gap="medium")
+            score_cols[0].metric("Interview score", f"{final_score}%")
+            score_cols[1].metric("Answers submitted", f"{completed_answers}/{len(st.session_state.mock_interview_questions)}")
+            score_cols[2].metric("Skills assessed", skill_count)
+            st.progress(final_score / 100, text="Overall evaluation")
+            if final_score >= 80:
+                st.success("Excellent round. Keep the structure that worked and refine the small gaps.")
+            elif final_score >= 60:
+                st.info("A solid base. Use the ideal answers below to sharpen clarity and depth.")
+            else:
+                st.warning("Useful baseline. Review each answer, then try another round with one clear improvement goal.")
+
+            st.button(
+                "Create Result Card",
+                type="primary",
+                use_container_width=True,
+                on_click=_open_visual_tools_with_prefill,
+            )
+
             # Show all answers with ideal answers
             with st.expander("📖 Review Your Answers & Ideal Responses"):
                 for i, (q, a) in enumerate(zip(st.session_state.mock_interview_questions,

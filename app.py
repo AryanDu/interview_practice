@@ -65,6 +65,30 @@ def _navigate(index: int, focus: str = "", topic: str = "") -> None:
     st.session_state.v2_global_search = ""
 
 
+@st.cache_data(ttl=30, show_spinner=False)
+def _cached_current_streak(user_id: str) -> int:
+    """Cache the tiny streak summary so each UI rerun avoids a history query."""
+    try:
+        attempts, _ = _load_history(user_id)
+        return _daily_stats(attempts, _now().date())[1]
+    except Exception:
+        return 0
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _cached_topic_names(user_id: str) -> list[str]:
+    """Cache saved topic labels while the user types in the global search."""
+    try:
+        _, topics = _load_history(user_id)
+        return sorted({
+            str(row.get("topic") or "").strip()
+            for row in topics
+            if str(row.get("topic") or "").strip()
+        })
+    except Exception:
+        return []
+
+
 def _search_results(query: str, user_id: str) -> list[dict]:
     """Find workspaces and saved quiz topics without mutating stored records."""
     query = query.strip().casefold()
@@ -90,22 +114,17 @@ def _search_results(query: str, user_id: str) -> list[dict]:
         if query in label.casefold() or any(query in term or term in query for term in terms):
             result.append({"label": label, "index": index, "kind": "workspace"})
 
-    # Search topic labels from the same user-scoped data used by the dashboard.
-    try:
-        _, topics = _load_history(user_id)
-        for row in topics:
-            topic = str(row.get("topic") or "").strip()
-            if topic and query in topic.casefold():
-                result.append({
-                    "label": f"Topic: {topic}",
-                    "index": 0,
-                    "kind": "topic",
-                    "topic": topic,
-                    "focus": "topic",
-                })
-    except Exception:
-        # Navigation should remain usable even if optional search data is unavailable.
-        pass
+    # Search topic labels from a short-lived user-scoped cache to avoid a
+    # database query on every keystroke/rerun.
+    for topic in _cached_topic_names(user_id):
+        if query in topic.casefold():
+            result.append({
+                "label": f"Topic: {topic}",
+                "index": 0,
+                "kind": "topic",
+                "topic": topic,
+                "focus": "topic",
+            })
 
     # Keep the quick-switch compact and avoid duplicate workspace entries.
     unique = []
@@ -137,14 +156,9 @@ def main():
     apply_user_preferences()
     render_brand_bar()
 
-    # Real study streak for the compact productivity bar. Failure to read it must
-    # never block normal navigation.
-    current_streak = 0
-    try:
-        attempts, _ = _load_history(user["id"])
-        _, current_streak, _ = _daily_stats(attempts, _now().date())
-    except Exception:
-        pass
+    # Short-lived cache keeps the productivity bar from re-querying history
+    # on every sidebar/quiz-widget interaction.
+    current_streak = _cached_current_streak(user["id"])
 
     current_index = st.session_state.get("active_tab", -1)
     current_label = st.session_state.get("v2_workspace_picker") or _WORKSPACE_LABELS.get(current_index, "🏠 Command Center")
@@ -222,6 +236,7 @@ def main():
                         icon_label,
                         key=f"v2_sidebar_nav_{target_index}",
                         help=help_text,
+                        type="primary" if target_index == current_index else "secondary",
                         use_container_width=True,
                         on_click=_navigate,
                         args=(target_index,),

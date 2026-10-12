@@ -298,18 +298,30 @@ header[data-testid="stHeader"] {
   margin: .2rem 0 .55rem;
 }
 [data-testid="stSidebar"] .stButton > button {
-  min-height: 2.2rem;
+  min-height: 2.35rem;
   padding: .3rem .45rem;
-  background: var(--v2-sidebar-soft);
-  color: #F1F3FC;
-  border-color: rgba(255,255,255,.12);
+  background: #222E4B !important;
+  color: #F1F3FC !important;
+  border: 1px solid rgba(255,255,255,.2) !important;
   border-radius: 10px;
   font-size: .95rem;
+  box-shadow: 0 2px 7px rgba(0,0,0,.12);
 }
-[data-testid="stSidebar"] .stButton > button:hover {
+[data-testid="stSidebar"] .stButton > button[kind="primary"] {
   background: var(--v2-butter) !important;
   color: var(--v2-cobalt-deep) !important;
   border-color: var(--v2-butter) !important;
+  box-shadow: 0 3px 10px rgba(255,240,166,.16);
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+  background: #FFF0A6 !important;
+  color: #233FAF !important;
+  border-color: #FFF0A6 !important;
+  transform: translateY(-1px);
+}
+[data-testid="stSidebar"] .stButton > button:focus-visible {
+  outline: 2px solid #FFF0A6 !important;
+  outline-offset: 2px;
 }
 [data-testid="stMain"] {
   font-family: "Avenir Next", "Nunito", "Trebuchet MS", ui-rounded, system-ui, sans-serif;

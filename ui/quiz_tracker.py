@@ -629,8 +629,28 @@ def _answer_widget_key(session_id: str, index: int) -> str:
     return f"quiz_answer_{session_id}_{token}_{index}"
 
 
+def _persist_answer_from_widget(session_id: str, index: int) -> None:
+    """Copy the visible radio value into durable per-attempt state.
+
+    Streamlit may clear widget state after that question's radio is no longer
+    rendered. This separate dictionary keeps answers safe while navigating.
+    """
+    selected = st.session_state.get(_answer_widget_key(session_id, index))
+    if selected is None:
+        return
+    try:
+        value = int(selected)
+    except (TypeError, ValueError):
+        return
+    answers = dict(st.session_state.get("quiz_tracker_answers") or {})
+    answers[index] = value
+    st.session_state.quiz_tracker_answers = answers
+
+
 def _answers_from_widgets(session_id: str, questions: list[dict]) -> dict[int, int]:
-    answers = {}
+    # Start with the durable answer map; widget keys are only a fallback for
+    # the currently rendered question and can be cleared when navigating away.
+    answers = dict(st.session_state.get("quiz_tracker_answers") or {})
     for index in range(len(questions)):
         selected = st.session_state.get(_answer_widget_key(session_id, index))
         if selected is not None:
@@ -638,6 +658,8 @@ def _answers_from_widgets(session_id: str, questions: list[dict]) -> dict[int, i
                 answers[index] = int(selected)
             except (TypeError, ValueError):
                 continue
+    if answers != dict(st.session_state.get("quiz_tracker_answers") or {}):
+        st.session_state.quiz_tracker_answers = answers
     return answers
 
 
@@ -870,7 +892,9 @@ def _render_active_quiz(session_id: str) -> None:
                 options=list(range(4)),
                 format_func=lambda choice, opts=question["options"]: f"{'ABCD'[choice]}. {opts[choice]}",
                 key=_answer_widget_key(session_id, current_index),
-                index=None,
+                index=(st.session_state.get("quiz_tracker_answers") or {}).get(current_index),
+                on_change=_persist_answer_from_widget,
+                args=(session_id, current_index),
                 label_visibility="collapsed",
             )
 

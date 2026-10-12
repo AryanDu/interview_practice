@@ -64,6 +64,39 @@ def test_exam_navigator_clamps_question_index(monkeypatch):
     assert fake_state.quiz_tracker_current_question_index == 0
 
 
+def test_answers_from_widgets_keeps_answers_for_unrendered_questions(monkeypatch):
+    token = "attempt-123"
+    session_id = "user-123"
+    fake_state = FakeSessionState(
+        quiz_tracker_attempt_token=token,
+        quiz_tracker_answers={0: 2, 2: 1},
+    )
+    # Only question 1 is currently rendered; answers for questions 0 and 2
+    # must survive when Streamlit has removed their radio widgets.
+    fake_state[f"quiz_answer_{session_id}_{token}_1"] = 3
+    monkeypatch.setattr(quiz_tracker.st, "session_state", fake_state)
+
+    answers = quiz_tracker._answers_from_widgets(session_id, [{}, {}, {}, {}])
+
+    assert answers == {0: 2, 1: 3, 2: 1}
+    assert fake_state.quiz_tracker_answers == answers
+
+
+def test_radio_change_persists_answer_in_durable_state(monkeypatch):
+    token = "attempt-456"
+    session_id = "user-456"
+    fake_state = FakeSessionState(
+        quiz_tracker_attempt_token=token,
+        quiz_tracker_answers={0: 1},
+    )
+    fake_state[f"quiz_answer_{session_id}_{token}_2"] = 3
+    monkeypatch.setattr(quiz_tracker.st, "session_state", fake_state)
+
+    quiz_tracker._persist_answer_from_widget(session_id, 2)
+
+    assert fake_state.quiz_tracker_answers == {0: 1, 2: 3}
+
+
 def test_v2_preferences_use_existing_user_settings_table(monkeypatch, tmp_path):
     monkeypatch.setattr(quiz_tracker, "_database_url", lambda: "")
     monkeypatch.setattr(quiz_tracker, "DB_PATH", tmp_path / "v2_preferences.sqlite3")

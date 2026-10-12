@@ -1037,15 +1037,28 @@ def render_quiz_tracker_tab(user_id: str | None = None) -> None:
 
     st.subheader("Create a quiz")
     with st.container(border=True):
-      with st.form("quiz_generation_form"):
-          subject = st.text_input("Subject / topic", placeholder="e.g. Python, SQL, Machine Learning, DBMS", key="quiz_tracker_subject_input")
-          difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
-          count = st.slider("Number of questions", min_value=5, max_value=20, value=10, step=5)
-          mode_label = st.radio("Session type", ["Practice quiz", "Timed mock test"], horizontal=True)
-          duration_minutes = st.select_slider("Mock-test time limit (minutes)", options=[5, 10, 15, 20, 30, 45, 60], value=15, disabled=mode_label != "Timed mock test")
-          notes_file = st.file_uploader("Optional study file (PDF, TXT, or MD)", type=["pdf", "txt", "md"])
-          source_text = st.text_area("Paste notes, syllabus, or job description (optional)", height=130, placeholder="Questions will focus on this material when provided.")
-          submitted = st.form_submit_button("Generate quiz", type="primary")
+        with st.form("quiz_generation_form"):
+            subject = st.text_input(
+                "Subject / topic",
+                placeholder="e.g. Python, SQL, Machine Learning, DBMS",
+                key="quiz_tracker_subject_input",
+            )
+            difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
+            count = st.slider("Number of questions", min_value=5, max_value=20, value=10, step=5)
+            mode_label = st.radio("Session type", ["Practice quiz", "Timed mock test"], horizontal=True)
+            duration_minutes = st.select_slider(
+                "Mock-test time limit (minutes)",
+                options=[5, 10, 15, 20, 30, 45, 60],
+                value=15,
+                disabled=mode_label != "Timed mock test",
+            )
+            notes_file = st.file_uploader("Optional study file (PDF, TXT, or MD)", type=["pdf", "txt", "md"])
+            source_text = st.text_area(
+                "Paste notes, syllabus, or job description (optional)",
+                height=130,
+                placeholder="Questions will focus on this material when provided.",
+            )
+            submitted = st.form_submit_button("Generate quiz", type="primary")
 
     if submitted:
         api_key = _api_key()

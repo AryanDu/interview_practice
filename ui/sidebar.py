@@ -2,6 +2,8 @@
 Sidebar configuration and setup for the Interview Practice App
 """
 import streamlit as st
+import hashlib
+from pathlib import Path
 from config import Config
 from utils.prompts import PromptEngineer
 
@@ -136,7 +138,11 @@ def initialize_session_state():
     if 'vector_db' not in st.session_state:
         try:
             from utils.vector_db import VectorDatabase
-            st.session_state.vector_db = VectorDatabase()
+            # Never share a persistent vector store between public-app accounts.
+            profile_id = str(st.session_state.get('auth_user_id', 'local-profile'))
+            profile_scope = hashlib.sha256(profile_id.encode('utf-8')).hexdigest()[:24]
+            vector_path = str(Path(Config.VECTOR_DB_PATH) / profile_scope)
+            st.session_state.vector_db = VectorDatabase(db_path=vector_path)
         except Exception as e:
             st.session_state.vector_db = None
             st.warning(f"Vector database initialization failed: {e}")

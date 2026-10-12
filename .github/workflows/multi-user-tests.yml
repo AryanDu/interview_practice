@@ -10,7 +10,7 @@ on:
       - "tests/**"
       - "requirements.txt"
       - ".streamlit/config.toml"
-      - "docs/MULTI_USER_SETUP.md"
+      - "docs/**"
       - ".gitignore"
       - ".github/workflows/multi-user-tests.yml"
   push:
@@ -23,7 +23,7 @@ on:
       - "tests/**"
       - "requirements.txt"
       - ".streamlit/config.toml"
-      - "docs/MULTI_USER_SETUP.md"
+      - "docs/**"
       - ".gitignore"
       - ".github/workflows/multi-user-tests.yml"
 
@@ -42,13 +42,42 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "streamlit>=1.42.0" pandas requests pypdf streamlit-autorefresh "psycopg[binary,pool]>=3.2.3" reportlab pytest
+          python -m pip install "streamlit>=1.42.0" pandas requests pypdf streamlit-autorefresh "psycopg[binary,pool]>=3.2.3" reportlab pytest pydantic jinja2 pillow
       - name: Compile all Python source and tests
         run: python -m compileall -q app.py ui utils chains tests
-      - name: Run multi-user persistence and PDF report tests
-        run: python -m pytest -q tests/test_quiz_tracker_multiuser.py tests/test_mock_interview_reports.py
+      - name: Run multi-user persistence, security-guard and PDF report tests
+        run: python -m pytest -q tests/test_quiz_tracker_multiuser.py tests/test_mock_interview_reports.py tests/test_security_guard.py
 
-  security:
+  bandit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Bandit
+        run: python -m pip install --upgrade bandit
+      - name: Scan Python source
+        run: bandit -r app.py ui utils chains -ll
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pip-audit
+        run: python -m pip install --upgrade pip-audit
+      - name: Audit Python dependencies (documented ChromaDB advisory exception)
+        run: |
+          pip-audit -r requirements.txt \
+            --ignore-vuln PYSEC-2026-311 \
+            --ignore-vuln PYSEC-2026-3813 \
+            --ignore-vuln PYSEC-2026-3814 \
+            --ignore-vuln PYSEC-2026-3815
+
+  secret-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -57,13 +86,25 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install security scanners
-        run: python -m pip install --upgrade bandit pip-audit
-      - name: Scan Python code for high-severity security issues
-        run: bandit -r app.py ui utils chains -ll
-      - name: Audit dependencies for known vulnerabilities
-        run: pip-audit -r requirements.txt
-      - name: Scan repository history for exposed secrets
+      - name: Install Gitleaks
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install detect-secrets
+      - name: Scan current files for common secrets
+        run: detect-secrets scan --all-files --exclude-files 'data/vector_db/.*' --exclude-files '.*\.pdf' > /tmp/detect-secrets.json
+      - name: Verify current scan has no findings
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("/tmp/detect-secrets.json").read_text())
+          findings = {p: v for p, v in data.get("results", {}).items() if v}
+          if findings:
+              print(json.dumps(findings, indent=2))
+              raise SystemExit("Potential secrets found in current working tree; review before release.")
+          print("No potential secrets detected in current working tree.")
+          PY
+      - name: Scan Git history for leaked secrets
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

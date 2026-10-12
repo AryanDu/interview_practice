@@ -18,6 +18,12 @@ _ANALYTICS_CSS = """
 """
 
 
+def _open_quiz_studio() -> None:
+    """Navigate via a callback so widget state is updated before the next render."""
+    st.session_state.active_tab = 0
+    st.session_state.v2_workspace_picker = "🧠 Quiz Studio & Progress"
+
+
 def render_analytics_tab(user_id: str | None = None):
     """Analytics and statistics — read-only and scoped to the current signed-in user."""
     st.markdown(_ANALYTICS_CSS, unsafe_allow_html=True)
@@ -139,9 +145,12 @@ def render_analytics_tab(user_id: str | None = None):
             with st.container(border=True):
                 st.markdown("### No quiz history yet — your first session starts the trend.")
                 st.write("Complete a quiz to unlock the accuracy chart, topic breakdown and practice history.")
-                if st.button("Open Quiz Studio", key="analytics_first_quiz", type="primary"):
-                    st.session_state.active_tab = 0
-                    st.session_state.v2_workspace_picker = "🧠 Quiz Studio & Progress"
+                st.button(
+                    "Open Quiz Studio",
+                    key="analytics_first_quiz",
+                    type="primary",
+                    on_click=_open_quiz_studio,
+                )
     st.divider()
 
     # The existing app-level security/vector/chat statistics remain available.

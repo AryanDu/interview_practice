@@ -11,10 +11,32 @@ from utils.prompts import PromptEngineer
 from utils.validators import validate_interview_request
 
 
+_INTERVIEW_CSS = """
+<style>
+.v2-interview-intro { padding:1.2rem 1.4rem; margin-bottom:1rem; border:1px solid #E9E5D5; border-radius:18px; background:linear-gradient(110deg,#FFFFFF 0%,#FFFFFF 74%,#FFF4B8 100%); }
+.v2-interview-kicker { color:#3556D8; font-size:.67rem; font-weight:850; letter-spacing:.12em; }
+.v2-interview-intro h1 { margin:.45rem 0 .35rem; color:#1B2340; letter-spacing:-.055em; }
+.v2-interview-intro p { margin:0; max-width:60ch; color:#68718A; line-height:1.55; }
+.v2-interview-question { margin:.2rem 0 .6rem; color:#68718A; font-size:.67rem; font-weight:850; letter-spacing:.12em; }
+.v2-interview-question-text { color:#1B2340; font-size:clamp(1.25rem,2.5vw,1.8rem); line-height:1.35; font-weight:750; letter-spacing:-.035em; }
+</style>
+"""
+
+
+def _jump_mock_question(index: int) -> None:
+    questions = st.session_state.get("mock_interview_questions") or []
+    if questions:
+        st.session_state.mock_interview_current_question = min(max(int(index), 0), len(questions) - 1)
+
+
 def render_mock_interview_tab(config):
     """Mock interview tab with interactive Q&A and scoring"""
-    st.header("🎤 Mock Interview - Practice with Real Questions")
-    st.markdown("Answer interview questions and receive a personalized score based on your responses.")
+    st.markdown(_INTERVIEW_CSS, unsafe_allow_html=True)
+    st.markdown(
+        '<section class="v2-interview-intro"><div class="v2-interview-kicker">FOCUSED INTERVIEW WORKSPACE</div>'
+        '<h1>Mock Interview</h1><p>Take the interviewer’s seat. Work through one question at a time, keep your answers, and review feedback at the end.</p></section>',
+        unsafe_allow_html=True,
+    )
     
     # Initialize session state for mock interview
     if 'mock_interview_questions' not in st.session_state:
@@ -44,32 +66,54 @@ def render_mock_interview_tab(config):
     
     # Interview progress
     if st.session_state.mock_interview_questions:
+        questions = st.session_state.mock_interview_questions
+        total_questions = len(questions)
+        current_q_idx = min(max(int(st.session_state.mock_interview_current_question), 0), total_questions - 1)
+        st.session_state.mock_interview_current_question = current_q_idx
+        current_question = questions[current_q_idx]
+        saved_answers = st.session_state.mock_interview_answers
+        answered_count = sum(1 for value in saved_answers.values() if str(value).strip())
         st.divider()
-        st.subheader(f"🎤 Mock Interview - Question {st.session_state.mock_interview_current_question + 1}/{len(st.session_state.mock_interview_questions)}")
-        
-        # Progress bar
-        progress = st.session_state.mock_interview_current_question / len(st.session_state.mock_interview_questions)
-        st.progress(progress)
-        
-        # Display current question
-        current_q_idx = st.session_state.mock_interview_current_question
-        current_question = st.session_state.mock_interview_questions[current_q_idx]
-        
-        st.markdown(f"### Question {current_q_idx + 1}")
-        st.markdown(f"**{current_question}**")
-        
-        # Text area for answer
-        answer = st.text_area(
-            "Your Answer:",
-            value=st.session_state.mock_interview_answers.get(current_q_idx, ""),
-            height=150,
-            placeholder="Type your answer here...",
-            label_visibility="collapsed",
-            key=f"mock_answer_{current_q_idx}",
-            max_chars=5000,
-        )
-        
-        # Save answer
+
+        status_cols = st.columns(3, gap="small")
+        status_cols[0].metric("Question", f"{current_q_idx + 1} / {total_questions}")
+        status_cols[1].metric("Answers drafted", f"{answered_count} / {total_questions}")
+        status_cols[2].metric("Still to answer", max(0, total_questions - answered_count))
+        st.progress((current_q_idx + 1) / total_questions, text="Interview progress")
+
+        st.markdown("### Question navigator")
+        for row_start in range(0, total_questions, 5):
+            indexes = list(range(row_start, min(row_start + 5, total_questions)))
+            cols = st.columns(len(indexes), gap="small")
+            for col, question_index in zip(cols, indexes):
+                done = bool(str(saved_answers.get(question_index, "")).strip())
+                label = f"{'✓ ' if done else ''}{question_index + 1}"
+                with col:
+                    st.button(
+                        label,
+                        key=f"mock_question_nav_{question_index}",
+                        type="primary" if question_index == current_q_idx else "secondary",
+                        use_container_width=True,
+                        on_click=_jump_mock_question,
+                        args=(question_index,),
+                        help=f"Question {question_index + 1} · {'Answer drafted' if done else 'Not answered yet'}",
+                    )
+
+        with st.container(border=True):
+            st.markdown(f'<div class="v2-interview-question">QUESTION {current_q_idx + 1:02d}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="v2-interview-question-text">{current_question}</div>', unsafe_allow_html=True)
+            st.caption("Draft your answer below. Your response is retained when you navigate between questions.")
+            answer = st.text_area(
+                "Your Answer:",
+                value=st.session_state.mock_interview_answers.get(current_q_idx, ""),
+                height=190,
+                placeholder="Structure your answer: context, action, reasoning and result…",
+                label_visibility="collapsed",
+                key=f"mock_answer_{current_q_idx}",
+                max_chars=5000,
+            )
+
+        # Save answer in the existing per-question state map.
         st.session_state.mock_interview_answers[current_q_idx] = answer
         
         # Navigation buttons

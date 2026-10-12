@@ -13,8 +13,11 @@ logger = logging.getLogger(__name__)
 
 def render_interview_prep_tab(config):
     """Interview preparation tab"""
-    st.header("Interview Preparation - Study Mode")
-    st.markdown("Upload your CV or job description for personalized questions.")
+    st.markdown(
+        '<section class="v2-workspace-intro"><div class="v2-page-kicker">PREPARE WITH CONTEXT</div>'
+        '<h1>Interview Prep</h1><p>Build a tailored study pack from a role, CV or job description. The existing generation and validation pipeline is unchanged.</p></section>',
+        unsafe_allow_html=True,
+    )
     cv_file = st.file_uploader("Upload CV (PDF or TXT)", type=["pdf", "txt"], key="interview_prep_cv")
     
     col1, col2 = st.columns([2, 1])
